@@ -16,7 +16,7 @@ export default function ApprovalQueue() {
   const fetchQueue = async () => {
     const { data, error } = await supabase
       .from('check_ins')
-      .select('*, profiles(username, in_game_name), activities(name, points, reference_image_path)')
+      .select('*, profiles:profiles!check_ins_user_id_fkey(username, in_game_name), activities(name, points, reference_image_path)')
       .eq('status', 'pending')
       .order('created_at', { ascending: true });
 
