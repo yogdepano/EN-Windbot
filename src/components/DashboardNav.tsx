@@ -19,12 +19,12 @@ export default function DashboardNav({ isAdmin = false }) {
     { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Submit Proof', href: '/dashboard/check-in', icon: ClipboardCheck },
     { name: 'Rewards', href: '/dashboard/rewards', icon: Gift },
+    { name: 'Referrals', href: '/dashboard/referrals', icon: Users },
   ];
 
   const adminLinks = [
     { name: 'Admin Hub', href: '/admin', icon: ShieldCheck },
     { name: 'Approval Queue', href: '/admin/queue', icon: ClipboardCheck },
-    { name: 'Catalog', href: '/admin/catalog', icon: Settings },
   ];
 
   return (

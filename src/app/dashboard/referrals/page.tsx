@@ -1,22 +1,66 @@
-import { Users, Copy, Share2, Info, TrendingUp, CheckCircle } from 'lucide-react';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Users, Copy, Share2, Info, TrendingUp, CheckCircle, Loader, Check } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 export const dynamic = 'force-dynamic';
 
 export default function ReferralsPage() {
-  const referralCode = 'GHOST-882';
-  const referralStats = {
-    total: 12,
-    active: 5,
-    pending: 7,
-    earned: 250,
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
+  const [recruits, setRecruits] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    async function fetchReferralData() {
+      if (!user) return;
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileData) {
+        setProfile(profileData);
+
+        const { data: recruitsData } = await supabase
+          .from('profiles')
+          .select('username, in_game_name, gp_balance, status')
+          .eq('referred_by', user.id);
+        
+        if (recruitsData) setRecruits(recruitsData);
+      }
+      setLoading(false);
+    }
+
+    fetchReferralData();
+  }, [user]);
+
+  const copyToClipboard = () => {
+    if (!profile?.referral_code) return;
+    navigator.clipboard.writeText(profile.referral_code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const recruits = [
-    { name: 'Jin_Fan_1', status: 'active', gp_earned: 120, bonus_awarded: true },
-    { name: 'Bushido_Way', status: 'active', gp_earned: 105, bonus_awarded: true },
-    { name: 'NightWatcher', status: 'pending', gp_earned: 45, bonus_awarded: false },
-    { name: 'Sakai_Clan', status: 'suspended', gp_earned: 0, bonus_awarded: false },
-  ];
+  const referralStats = {
+    total: recruits.length,
+    active: recruits.filter(r => r.status === 'active').length,
+    earned: recruits.filter(r => r.gp_balance >= 100).length * 50,
+    potential: recruits.filter(r => r.gp_balance < 100).length * 50,
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader className="animate-spin text-primary" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -26,7 +70,6 @@ export default function ReferralsPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Referral Card */}
         <div className="lg:col-span-2 space-y-6">
           <section className="card bg-gradient-to-br from-surface to-secondary/5 border-secondary/20 p-8">
             <h3 className="text-xl mb-4 text-secondary flex items-center gap-2">
@@ -37,10 +80,13 @@ export default function ReferralsPage() {
             
             <div className="flex gap-2">
               <div className="flex-1 bg-black/40 border border-white/10 rounded-lg p-4 font-mono text-xl tracking-widest text-center text-primary">
-                {referralCode}
+                {profile?.referral_code || 'LOADING...'}
               </div>
-              <button className="btn-primary flex items-center justify-center px-6">
-                <Copy size={20} />
+              <button 
+                onClick={copyToClipboard}
+                className="btn-primary flex items-center justify-center px-6"
+              >
+                {copied ? <Check size={20} /> : <Copy size={20} />}
               </button>
             </div>
           </section>
@@ -52,15 +98,15 @@ export default function ReferralsPage() {
             </div>
 
             <div className="space-y-4">
-              {recruits.map((recruit, i) => (
+              {recruits.length > 0 ? recruits.map((recruit, i) => (
                 <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-transparent hover:border-white/5 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-surface-hover flex items-center justify-center font-bold text-xs uppercase">
-                      {recruit.name[0]}
+                      {recruit.username?.[0] || 'U'}
                     </div>
                     <div>
-                      <p className="font-bold">{recruit.name}</p>
-                      <p className="text-xs text-text-muted">Earned: {recruit.gp_earned} GP</p>
+                      <p className="font-bold">{recruit.username}</p>
+                      <p className="text-xs text-text-muted">Current Balance: {recruit.gp_balance} GP</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -70,20 +116,21 @@ export default function ReferralsPage() {
                     }`}>
                       {recruit.status}
                     </span>
-                    {recruit.bonus_awarded && (
+                    {recruit.gp_balance >= 100 && (
                       <p className="text-[10px] text-primary font-bold mt-1 flex items-center justify-end gap-1">
                         <CheckCircle size={10} />
-                        Bonus Paid
+                        Bonus Awarded
                       </p>
                     )}
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="py-12 text-center text-text-muted italic text-sm">You haven't referred any members yet.</div>
+              )}
             </div>
           </section>
         </div>
 
-        {/* Stats & Rules */}
         <div className="space-y-6">
           <section className="card space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-widest text-text-muted">Referral Stats</h3>
@@ -98,12 +145,8 @@ export default function ReferralsPage() {
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-text-muted">Bonus Potential</span>
-                <span className="font-bold text-secondary">+{referralStats.pending * 50} GP</span>
+                <span className="font-bold text-secondary">+{referralStats.potential} GP</span>
               </div>
-            </div>
-            <div className="pt-4 flex items-center gap-2 text-success text-xs font-bold">
-              <TrendingUp size={14} />
-              <span>Rank: Guild Recruiter II</span>
             </div>
           </section>
 
@@ -113,10 +156,9 @@ export default function ReferralsPage() {
               <h4 className="font-bold text-sm uppercase">Bonus Rules</h4>
             </div>
             <ul className="text-xs text-text-muted space-y-3 list-disc ml-4">
-              <li>Recruit must use your code during registration.</li>
-              <li>Recruit must join the Every Nation Discord server.</li>
-              <li>Recruit must remain in "active" status.</li>
-              <li>Bonus is paid automatically once recruit earns <span className="text-text-main font-bold">100 GP</span> through activities.</li>
+              <li>Recruits must use your code.</li>
+              <li>Bonus of 50 GP is paid once recruit earns 100 GP.</li>
+              <li>Recruits must remain active.</li>
             </ul>
           </section>
         </div>
