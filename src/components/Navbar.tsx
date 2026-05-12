@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Shield, LayoutDashboard, User, LogOut } from 'lucide-react';
+import { LayoutDashboard, User, LogOut } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
 
@@ -12,13 +12,13 @@ export default function Navbar() {
     <nav className="glass sticky top-0 z-50 w-full border-b border-white/5 py-4">
       <div className="container flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <Shield className="text-primary h-8 w-8" />
+          <img src="/en-logo.png" alt="EN Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_10px_rgba(212,175,55,0.8)]" />
           <span className="heading-serif text-xl font-bold tracking-wider">Every Nation</span>
         </Link>
 
         <div className="flex items-center gap-6">
           <Link href="/#rewards" className="text-text-muted hover:text-primary transition-colors hidden md:block">Rewards</Link>
-          <Link href="/#rules" className="text-text-muted hover:text-primary transition-colors hidden md:block">Rules</Link>
+          <Link href="/rules" className="text-text-muted hover:text-primary transition-colors hidden md:block">Rules</Link>
           
           {user ? (
             <div className="flex items-center gap-4 lg:gap-6">
