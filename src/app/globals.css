@@ -3,18 +3,26 @@
 :root {
   --background: #060608;
   --surface: #0c0c0f;
+  --surface-alt: #111116;
   --surface-hover: #16161c;
   --primary: #d4af37;
   --primary-glow: rgba(212, 175, 55, 0.2);
+  --primary-5: rgba(212, 175, 55, 0.05);
+  --primary-10: rgba(212, 175, 55, 0.1);
+  --primary-20: rgba(212, 175, 55, 0.2);
   --secondary: #8b5cf6;
   --secondary-glow: rgba(139, 92, 246, 0.2);
+  --secondary-10: rgba(139, 92, 246, 0.1);
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
   --border: rgba(255, 255, 255, 0.08);
   --border-active: rgba(212, 175, 55, 0.4);
   --success: #10b981;
+  --success-10: rgba(16, 185, 129, 0.1);
   --error: #ef4444;
+  --error-10: rgba(239, 68, 68, 0.1);
   --warning: #f59e0b;
+  --warning-10: rgba(245, 158, 11, 0.1);
   
   --font-heading: 'Cinzel', serif;
   --font-subheading: 'Outfit', sans-serif;
@@ -87,24 +95,20 @@ button {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px var(--primary-glow); }
+  50% { box-shadow: 0 0 30px var(--primary-glow); }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.6s ease forwards;
 }
 
 /* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: var(--background);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--surface-hover);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
-}
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: var(--surface-hover); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
 /* Utilities */
 .container {
@@ -117,6 +121,7 @@ button {
   background: linear-gradient(135deg, #d4af37 0%, #f1d592 50%, #d4af37 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .card {
@@ -141,6 +146,9 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   box-shadow: 0 0 15px var(--primary-glow);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-primary:hover {
@@ -155,8 +163,32 @@ button {
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-secondary:hover {
   background: var(--primary-glow);
 }
+
+/* Utility color classes to replace Tailwind opacity utilities */
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--secondary); }
+.text-text-muted { color: var(--text-muted); }
+.text-text-main { color: var(--text-main); }
+.text-success { color: var(--success); }
+.text-error { color: var(--error); }
+.text-warning { color: var(--warning); }
+
+.bg-surface { background-color: var(--surface); }
+.bg-surface-alt { background-color: var(--surface-alt); }
+.bg-surface-hover { background-color: var(--surface-hover); }
+
+.border-primary { border-color: var(--primary); }
+.border-error { border-color: var(--error); }
+
+/* Space utilities */
+.space-y-8 > * + * { margin-top: 2rem; }
+.space-y-6 > * + * { margin-top: 1.5rem; }
+.space-y-4 > * + * { margin-top: 1rem; }
