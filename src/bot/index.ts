@@ -8,30 +8,18 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // --- HELPERS ---
 
-async function getOrCreateProfile(discordId: string, username: string) {
+async function getProfile(discordId: string) {
   const { data: existing } = await supabaseAdmin
     .from('profiles')
     .select('*')
     .eq('discord_id', discordId)
     .single();
 
-  if (existing) return existing;
+  if (!existing) {
+    throw new Error('You must log in to the Every Nation Rewards website first to register your account! Please visit: https://en-windbots.vercel.app');
+  }
 
-  const { data: newUser, error: createError } = await supabaseAdmin
-    .from('profiles')
-    .insert({
-      id: crypto.randomUUID(),
-      discord_id: discordId,
-      username: username,
-      referral_code: `EN-${discordId.substring(0, 5)}`,
-      role: 'member',
-      status: 'active'
-    })
-    .select()
-    .single();
-
-  if (createError) console.error('Error creating user:', createError);
-  return newUser;
+  return existing;
 }
 
 const GOLD = 0xd4af37;
@@ -47,7 +35,13 @@ client.on('interactionCreate', async (interaction: Interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName, user } = interaction;
-  const profile = await getOrCreateProfile(user.id, user.username);
+  
+  let profile;
+  try {
+    profile = await getProfile(user.id);
+  } catch (error: any) {
+    return interaction.reply({ content: error.message, ephemeral: true });
+  }
 
   if (profile.status === 'banned' || profile.status === 'suspended') {
     return interaction.reply({ content: `Your account is currently ${profile.status}. Contact an admin.`, ephemeral: true });
@@ -155,7 +149,13 @@ client.on('interactionCreate', async (interaction: Interaction) => {
     else if (commandName === 'adjust-points') {
       const targetUser = interaction.options.getUser('user', true);
       const amount = interaction.options.getInteger('amount', true);
-      const targetProfile = await getOrCreateProfile(targetUser.id, targetUser.username);
+      
+      let targetProfile;
+      try {
+        targetProfile = await getProfile(targetUser.id);
+      } catch (e) {
+        return interaction.reply({ content: `Cannot adjust points. **${targetUser.username}** has not logged into the website yet.`, ephemeral: true });
+      }
 
       await supabaseAdmin.rpc('adjust_gp', { p_user_id: targetProfile.id, p_amount: amount });
       await interaction.reply({ content: `Adjusted **${targetUser.username}** by **${amount} GP**.`, ephemeral: true });
