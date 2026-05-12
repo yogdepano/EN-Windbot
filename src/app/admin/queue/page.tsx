@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Check, X, Eye, ExternalLink, ShieldAlert, History, ClipboardCheck } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function ApprovalQueue() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
 

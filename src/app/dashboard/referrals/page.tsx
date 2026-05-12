@@ -1,5 +1,7 @@
 import { Users, Copy, Share2, Info, TrendingUp, CheckCircle } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function ReferralsPage() {
   const referralCode = 'GHOST-882';
   const referralStats = {

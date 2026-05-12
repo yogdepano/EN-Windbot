@@ -8,6 +8,8 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function AdminHub() {
   // Mock data
   const stats = [

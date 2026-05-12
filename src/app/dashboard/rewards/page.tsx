@@ -1,5 +1,7 @@
 import { Gift, Zap, CheckCircle2, ShoppingBag } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function RewardsCatalog() {
   const rewards = [
     { id: 1, name: 'Monthly Pass', cost: 300, desc: 'A 30-day premium subscription for Where Winds Meet.', available: true },

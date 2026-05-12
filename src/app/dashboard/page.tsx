@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabaseServer';
 import { redirect } from 'next/navigation';
 import { gpService } from '@/services/gpService';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardOverview() {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
