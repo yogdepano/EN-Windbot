@@ -1,14 +1,13 @@
 'use client';
 
-import { Award, CheckCircle, Zap, ShieldCheck, ChevronRight, ClipboardCheck } from 'lucide-react';
-
-export const dynamic = 'force-dynamic';
+import { Award, CheckCircle, Zap, ShieldCheck, ChevronRight, ClipboardCheck, Shield } from 'lucide-react';
 
 export default function EveryNationLanding() {
   return (
-    <main className="flex flex-col bg-[#060608] overflow-hidden" id="en-portal-v1-1-0" style={{ position: 'relative', zIndex: 100, minHeight: 'calc(100vh - 80px)' }}>
-      
-      <div className="split-screen relative" style={{ zIndex: 110 }}>
+    <div id="en-portal-root" style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: '#060608', overflow: 'hidden' }}>
+      <main className="flex flex-col bg-[#060608] overflow-hidden" id="en-portal-v1-1-3" style={{ minHeight: 'calc(100vh - 80px)' }}>
+        
+        <div className="split-screen relative">
         {/* Ambient Background */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-glow rounded-full blur-[100px]"></div>
@@ -20,12 +19,8 @@ export default function EveryNationLanding() {
           <div className="max-w-md animate-fade-in mx-auto md:mx-0">
             <header className="mb-8">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 flex-shrink-0">
-                  <img 
-                    src="/en-guild-logo.png?v=3" 
-                    alt="Every Nation Logo" 
-                    className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]" 
-                  />
+                <div className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-primary-10 rounded-2xl border border-primary-20">
+                  <Shield size={40} className="text-primary drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]" />
                 </div>
                 <div className="leading-tight">
                   <p className="text-xs text-text-muted uppercase tracking-widest font-bold mb-1">Official Portal</p>
@@ -110,14 +105,6 @@ export default function EveryNationLanding() {
                 </div>
               ))}
             </div>
-
-            <div className="mt-12 pt-6 border-t border-white-5 opacity-40 flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p className="text-xs uppercase tracking-widest font-bold" style={{ fontSize: '10px' }}>Every Nation Guild System</p>
-              <div className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div className="status-dot"></div>
-                <p className="text-xs font-mono" style={{ fontSize: '10px' }}>v1.1.0</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -160,7 +147,7 @@ export default function EveryNationLanding() {
         .border-secondary-10 { border-color: var(--secondary-10); }
         .text-warning { color: var(--warning); }
         .pointer-events-none { pointer-events: none; }
-        .blur-[100px] { filter: blur(100px); }
+        .blur-\[100px\] { filter: blur(100px); }
         .overflow-hidden { overflow: hidden; }
         .overflow-y-auto { overflow-y: auto; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -178,5 +165,6 @@ export default function EveryNationLanding() {
         .bg-secondary-glow { background-color: var(--secondary-glow); }
       `}</style>
     </main>
+    </div>
   );
 }
