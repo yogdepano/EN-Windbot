@@ -1,31 +1,32 @@
 import { Award, Zap, History, TrendingUp, AlertCircle } from 'lucide-react';
+import { createClient } from '@/lib/supabaseServer';
+import { redirect } from 'next/navigation';
+import { gpService } from '@/services/gpService';
 
-export default function DashboardOverview() {
-  // Mock data
-  const user = {
-    username: 'GhostOfJin',
-    in_game_name: 'Ghost',
-    gp_balance: 150,
-    lifetime_earned: 450,
-    lifetime_redeemed: 300,
-  };
+export default async function DashboardOverview() {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  const recentCheckins = [
-    { id: 1, activity: 'Breaking Army (Sat)', points: 5, date: '2026-05-09', status: 'approved' },
-    { id: 2, activity: 'Guild Party', points: 5, date: '2026-05-08', status: 'approved' },
-    { id: 3, activity: 'Guild War (Sat)', points: 5, date: '2026-05-09', status: 'pending' },
-  ];
+  if (authError || !user) {
+    redirect('/');
+  }
+
+  // Fetch real profile data
+  const profile = await gpService.getProfile(user.id);
+  
+  // Fetch real check-ins
+  const { data: recentCheckins } = await gpService.getRecentCheckIns(user.id, 5);
 
   return (
     <div className="space-y-8">
       <header className="flex justify-between items-end">
         <div>
           <h2 className="text-3xl mb-1">Guild Overview</h2>
-          <p className="text-text-muted">Welcome back, <span className="text-text-main font-bold">{user.username}</span></p>
+          <p className="text-text-muted">Welcome back, <span className="text-text-main font-bold">{profile?.username || user.email}</span></p>
         </div>
         <div className="text-right">
           <p className="text-xs text-text-muted uppercase tracking-widest font-bold">In-Game Name</p>
-          <p className="text-primary font-bold">{user.in_game_name}</p>
+          <p className="text-primary font-bold">{profile?.in_game_name || 'Not Set'}</p>
         </div>
       </header>
 
@@ -36,23 +37,23 @@ export default function DashboardOverview() {
             <Zap size={64} />
           </div>
           <p className="text-text-muted text-sm uppercase tracking-widest font-bold mb-2">Available GP</p>
-          <h3 className="text-5xl font-bold gold-gradient">{user.gp_balance}</h3>
-          <p className="text-xs text-text-muted mt-4">Equivalent to {user.gp_balance} Echo Beads</p>
+          <h3 className="text-5xl font-bold gold-gradient">{profile?.gp_balance || 0}</h3>
+          <p className="text-xs text-text-muted mt-4">Equivalent to {profile?.gp_balance || 0} Echo Beads</p>
         </div>
 
         <div className="card">
           <p className="text-text-muted text-sm uppercase tracking-widest font-bold mb-2">Lifetime Earned</p>
-          <h3 className="text-3xl">{user.lifetime_earned} <span className="text-sm text-text-muted">GP</span></h3>
+          <h3 className="text-3xl">{profile?.lifetime_earned || 0} <span className="text-sm text-text-muted">GP</span></h3>
           <div className="mt-4 flex items-center gap-2 text-success text-xs font-bold">
             <TrendingUp size={14} />
-            <span>+25 GP this week</span>
+            <span>Active Guild Member</span>
           </div>
         </div>
 
         <div className="card">
           <p className="text-text-muted text-sm uppercase tracking-widest font-bold mb-2">Total Redeemed</p>
-          <h3 className="text-3xl">{user.lifetime_redeemed} <span className="text-sm text-text-muted">GP</span></h3>
-          <p className="text-xs text-text-muted mt-4">1 Reward Fulfilled</p>
+          <h3 className="text-3xl">{profile?.lifetime_redeemed || 0} <span className="text-sm text-text-muted">GP</span></h3>
+          <p className="text-xs text-text-muted mt-4">{profile?.lifetime_redeemed ? 'Rewards Claimed' : 'No Redemptions Yet'}</p>
         </div>
       </div>
 
@@ -87,20 +88,26 @@ export default function DashboardOverview() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {recentCheckins.map((item) => (
+              {(recentCheckins || []).map((item: any) => (
                 <tr key={item.id} className="border-b border-white/5 last:border-0">
-                  <td className="py-4 font-medium">{item.activity}</td>
-                  <td className="py-4 text-text-muted">{item.date}</td>
-                  <td className="py-4 font-bold text-primary">+{item.points}</td>
+                  <td className="py-4 font-medium">{item.activities?.name}</td>
+                  <td className="py-4 text-text-muted">{new Date(item.created_at).toLocaleDateString()}</td>
+                  <td className="py-4 font-bold text-primary">+{item.activities?.points}</td>
                   <td className="py-4 text-right">
                     <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold ${
-                      item.status === 'approved' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+                      item.status === 'approved' ? 'bg-success/10 text-success' : 
+                      item.status === 'rejected' ? 'bg-error/10 text-error' : 'bg-warning/10 text-warning'
                     }`}>
                       {item.status}
                     </span>
                   </td>
                 </tr>
               ))}
+              {(!recentCheckins || recentCheckins.length === 0) && (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-text-muted italic">No recent activity found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
