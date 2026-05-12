@@ -8,7 +8,8 @@ import {
   Gift, 
   Settings,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
