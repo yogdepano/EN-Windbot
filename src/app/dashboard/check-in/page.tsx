@@ -89,6 +89,10 @@ export default function CheckInPage() {
     }
   };
 
+  const [showModal, setShowModal] = useState(false);
+
+  const currentActivity = activities.find(a => a.id === selectedActivity);
+
   if (submitted) {
     return (
       <div className="max-w-2xl mx-auto text-center py-12" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
@@ -110,10 +114,8 @@ export default function CheckInPage() {
     );
   }
 
-  const currentActivity = activities.find(a => a.id === selectedActivity);
-
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <header>
         <h2 style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>Submit Activity Proof</h2>
         <p style={{ color: 'var(--text-muted)' }}>Select an activity and upload a screenshot to claim your GP.</p>
@@ -127,11 +129,21 @@ export default function CheckInPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Form */}
+        {/* Form Column */}
         <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Activity</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Activity</label>
+                {/* Mobile-only help button */}
+                <button 
+                  type="button"
+                  onClick={() => setShowModal(true)}
+                  className="md:hidden flex items-center gap-1 text-primary text-xs font-bold"
+                >
+                  <HelpCircle size={14} /> View Reference
+                </button>
+              </div>
               <select
                 value={selectedActivity}
                 onChange={(e) => setSelectedActivity(e.target.value)}
@@ -220,42 +232,72 @@ export default function CheckInPage() {
           </div>
         </section>
 
-        {/* Reference */}
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {/* Reference Column (Desktop Only) */}
+        <section className="hidden md:flex flex-col gap-6">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Reference Guide</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700 }}>
               <HelpCircle size={14} />
-              <span>Matching Example</span>
+              <span>Required Screenshot</span>
             </div>
           </div>
 
-          <div className="card" style={{ height: 400, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-alt)', overflow: 'hidden' }}>
+          <div className="card" style={{ flex: 1, minHeight: 400, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-alt)', overflow: 'hidden' }}>
             {currentActivity?.reference_image_path ? (
-              <div style={{ width: '100%', height: '100%', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Your screenshot should look similar to this:</p>
-                <div style={{ flex: 1, borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <img src={currentActivity.reference_image_path} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'rgba(0,0,0,0.2)' }} />
+              <div style={{ width: '100%', height: '100%', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Your screenshot must look like this to be approved:</p>
+                <div style={{ flex: 1, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', background: '#000' }}>
+                  <img src={currentActivity.reference_image_path} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </div>
+                <div style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <p style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>Checklist:</p>
+                  <ul style={{ listStyle: 'disc', marginLeft: '1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <li>IGN visible in the top left/right corner</li>
+                    <li>Full UI visible (no cropping)</li>
+                    <li>Clear event completion message</li>
+                  </ul>
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.4 }}>
+              <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.3 }}>
                 <HelpCircle size={48} style={{ margin: '0 auto 1rem' }} />
-                <p>Select an activity to see the required screenshot format.</p>
+                <p>Select an activity to view reference</p>
               </div>
             )}
           </div>
-
-          <div style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            <p style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>Submission Tips:</p>
-            <ul style={{ listStyle: 'disc', marginLeft: '1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <li>Ensure your in-game name is visible.</li>
-              <li>Show the relevant UI element or event completion message.</li>
-              <li>Don't crop the image too tightly.</li>
-            </ul>
-          </div>
         </section>
       </div>
+
+      {/* Mobile Modal */}
+      {showModal && (
+        <div 
+          onClick={() => setShowModal(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="card" 
+            style={{ width: '100%', maxWidth: 500, maxHeight: '90vh', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative' }}
+          >
+            <button 
+              onClick={() => setShowModal(false)}
+              style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)' }}
+            >
+              <X size={24} />
+            </button>
+            <h3 className="text-xl">Reference Guide</h3>
+            {currentActivity?.reference_image_path ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <img src={currentActivity.reference_image_path} alt="Ref" style={{ width: '100%', borderRadius: 8 }} />
+                <p className="text-sm text-text-muted">Ensure your submission matches this format.</p>
+              </div>
+            ) : (
+              <p>No reference image available for this activity.</p>
+            )}
+            <button onClick={() => setShowModal(false)} className="btn-primary w-full py-3">Got it</button>
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>

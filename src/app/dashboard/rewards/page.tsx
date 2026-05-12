@@ -29,10 +29,25 @@ export default function RewardCatalog() {
     fetchData();
   }, [user]);
 
+  const [echoBeadQuantity, setEchoBeadQuantity] = useState(1);
+
+  const getRewardStyle = (name: string) => {
+    if (name.includes('Monthly Pass')) return { color: '#3b82f6', glow: 'rgba(59, 130, 246, 0.1)' };
+    if (name.includes('Premium Battle Pass')) return { color: '#eab308', glow: 'rgba(234, 179, 8, 0.1)' };
+    if (name.includes('Battle Pass')) return { color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.1)' };
+    if (name.includes('Echo Bead')) return { color: '#f8fafc', glow: 'rgba(248, 250, 252, 0.1)' };
+    return { color: 'var(--primary)', glow: 'var(--primary-10)' };
+  };
+
   const handleRedeem = async (reward: any) => {
     if (!user || !profile) return;
-    if (profile.gp_balance < reward.cost) {
-      setMessage({ type: 'error', text: `Insufficient GP. You need ${reward.cost} GP but only have ${profile.gp_balance} GP.` });
+    
+    const isEchoBead = reward.name.includes('Echo Bead');
+    const quantity = isEchoBead ? echoBeadQuantity : 1;
+    const totalCost = reward.cost * quantity;
+
+    if (profile.gp_balance < totalCost) {
+      setMessage({ type: 'error', text: `Insufficient GP. You need ${totalCost} GP but only have ${profile.gp_balance} GP.` });
       return;
     }
 
@@ -40,13 +55,15 @@ export default function RewardCatalog() {
     const { error } = await supabase.from('redemption_requests').insert({
       user_id: profile.id,
       reward_id: reward.id,
-      status: 'pending'
+      status: 'pending',
+      member_notes: isEchoBead ? `Quantity: ${quantity}` : null
     });
 
     if (error) {
       setMessage({ type: 'error', text: 'Failed to submit redemption. Please try again.' });
     } else {
-      setMessage({ type: 'success', text: `Redemption request for "${reward.name}" submitted! An admin will process it shortly.` });
+      setMessage({ type: 'success', text: `Redemption request for ${quantity > 1 ? quantity + ' ' : ''}"${reward.name}" submitted!` });
+      if (isEchoBead) setEchoBeadQuantity(1);
     }
     setRedeeming(null);
     setTimeout(() => setMessage(null), 5000);
@@ -90,36 +107,78 @@ export default function RewardCatalog() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
         {rewards.map((reward) => {
-          const canAfford = profile && profile.gp_balance >= reward.cost;
+          const isEchoBead = reward.name.includes('Echo Bead');
+          const quantity = isEchoBead ? echoBeadQuantity : 1;
+          const totalCost = reward.cost * quantity;
+          const canAfford = profile && profile.gp_balance >= totalCost;
+          const tierStyle = getRewardStyle(reward.name);
+
           return (
-            <div key={reward.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: 0, right: 0, padding: '1rem', opacity: 0.05 }}>
+            <div key={reward.id} className="card" style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '1rem', 
+              position: 'relative', 
+              overflow: 'hidden',
+              borderColor: tierStyle.color + '33',
+              boxShadow: `0 10px 30px -10px ${tierStyle.glow}`
+            }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, padding: '1rem', opacity: 0.05, color: tierStyle.color }}>
                 <Gift size={64} />
               </div>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-10)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+              <div style={{ 
+                width: 48, 
+                height: 48, 
+                borderRadius: '50%', 
+                background: tierStyle.color + '1a', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                color: tierStyle.color 
+              }}>
                 <ShoppingBag size={24} />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.1rem', color: 'var(--text-main)', textTransform: 'none', letterSpacing: 'normal' }}>{reward.name}</h3>
+                <h3 style={{ fontSize: '1.1rem', color: 'var(--text-main)', textTransform: 'none', letterSpacing: 'normal', fontWeight: 700 }}>{reward.name}</h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 4 }}>{reward.description}</p>
               </div>
+
+              {isEchoBead && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '8px', width: 'fit-content' }}>
+                  <button 
+                    onClick={() => setEchoBeadQuantity(Math.max(1, echoBeadQuantity - 10))}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}
+                  >-</button>
+                  <span style={{ minWidth: '3ch', textAlign: 'center', fontWeight: 'bold' }}>{echoBeadQuantity}</span>
+                  <button 
+                    onClick={() => setEchoBeadQuantity(echoBeadQuantity + 10)}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}
+                  >+</button>
+                </div>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
-                <Zap size={16} style={{ color: 'var(--primary)' }} />
-                <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>{reward.cost}</span>
+                <Zap size={16} style={{ color: tierStyle.color }} />
+                <span style={{ fontSize: '1.5rem', fontWeight: 700, color: tierStyle.color }}>{totalCost}</span>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>GP</span>
               </div>
               <button
                 onClick={() => handleRedeem(reward)}
                 disabled={!canAfford || redeeming === reward.id}
-                className={canAfford ? 'btn-primary' : 'btn-secondary'}
                 style={{
                   width: '100%',
                   padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: canAfford ? tierStyle.color : 'rgba(255,255,255,0.05)',
+                  color: canAfford ? (tierStyle.color === '#f8fafc' ? '#000' : '#fff') : 'var(--text-muted)',
+                  fontWeight: 700,
+                  transition: 'all 0.2s',
                   opacity: (!canAfford || redeeming === reward.id) ? 0.5 : 1,
                   cursor: (!canAfford || redeeming === reward.id) ? 'not-allowed' : 'pointer',
                 }}
               >
-                {redeeming === reward.id ? 'Submitting...' : canAfford ? 'Redeem Now' : `Need ${reward.cost - (profile?.gp_balance || 0)} more GP`}
+                {redeeming === reward.id ? 'Submitting...' : canAfford ? 'Redeem Now' : `Need ${totalCost - (profile?.gp_balance || 0)} more GP`}
               </button>
             </div>
           );
