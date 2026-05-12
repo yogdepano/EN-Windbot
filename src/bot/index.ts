@@ -138,15 +138,6 @@ client.on('interactionCreate', async (interaction: Interaction) => {
       await interaction.reply({ embeds: [embed] });
     }
 
-    else if (commandName === 'referral') {
-      const embed = new EmbedBuilder()
-        .setTitle('🤝 Referral Code')
-        .setColor(GOLD)
-        .setDescription(`Code: **${profile.referral_code}**\nEarn 50 GP per recruit!`);
-
-      await interaction.reply({ embeds: [embed] });
-    }
-
     // --- ADMIN COMMANDS ---
 
     else if (commandName === 'approve-checkin') {

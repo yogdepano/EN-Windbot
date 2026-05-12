@@ -56,7 +56,7 @@ export default function Home() {
       {/* Stats/Overview */}
       <section className="py-20 bg-surface/50 border-y border-white/5">
         <div className="container">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="card text-center group">
               <div className="w-16 h-16 mx-auto mb-6 flex items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
                 <Zap size={32} />
@@ -71,14 +71,6 @@ export default function Home() {
               </div>
               <h3 className="mb-4">Exclusive Rewards</h3>
               <p className="text-text-muted">Exchange your points for in-game Monthly Passes and Battle Passes at a 1:1 Echo Bead rate.</p>
-            </div>
-
-            <div className="card text-center group">
-              <div className="w-16 h-16 mx-auto mb-6 flex items-center justify-center rounded-full bg-success/10 text-success group-hover:scale-110 transition-transform">
-                <Users size={32} />
-              </div>
-              <h3 className="mb-4">Referral Bonus</h3>
-              <p className="text-text-muted">Invite friends to Every Nation and receive <span className="text-success font-bold">50 GP</span> when they become active members.</p>
             </div>
           </div>
         </div>

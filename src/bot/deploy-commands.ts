@@ -48,10 +48,6 @@ const commands = [
     .setName('history')
     .setDescription('Show your GP earning and redemption history'),
 
-  new SlashCommandBuilder()
-    .setName('referral')
-    .setDescription('Show your referral code and progress'),
-
   // Admin Commands
   new SlashCommandBuilder()
     .setName('approve-checkin')

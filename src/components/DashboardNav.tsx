@@ -6,7 +6,6 @@ import {
   LayoutDashboard, 
   ClipboardCheck, 
   Gift, 
-  Users, 
   Settings,
   ShieldCheck,
   ChevronRight
@@ -20,7 +19,6 @@ export default function DashboardNav({ isAdmin = false }) {
     { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Submit Proof', href: '/dashboard/check-in', icon: ClipboardCheck },
     { name: 'Rewards', href: '/dashboard/rewards', icon: Gift },
-    { name: 'Referrals', href: '/dashboard/referrals', icon: Users },
   ];
 
   const adminLinks = [
