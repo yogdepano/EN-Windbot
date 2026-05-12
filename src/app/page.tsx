@@ -19,9 +19,7 @@ export default function EveryNationLanding() {
           <div className="max-w-md animate-fade-in mx-auto md:mx-0">
             <header className="mb-8">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-primary-10 rounded-2xl border border-primary-20">
-                  <img src="/en-logo.png" alt="EN Logo" className="w-12 h-12 object-contain drop-shadow-[0_0_15px_rgba(212,175,55,0.8)]" />
-                </div>
+                  <img src="/en-logo.png" alt="EN Logo" style={{ width: '64px', height: '64px', objectFit: 'contain', filter: 'drop-shadow(0 0 15px rgba(212,175,55,0.8))' }} />
                 <div className="leading-tight">
                   <p className="text-xs text-text-muted uppercase tracking-widest font-bold mb-1">Official Portal</p>
                   <h1 className="text-4xl md:text-5xl font-black gold-gradient leading-none tracking-tight" id="main-title">Every Nation</h1>
