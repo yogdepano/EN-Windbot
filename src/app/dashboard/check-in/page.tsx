@@ -89,7 +89,39 @@ export default function CheckInPage() {
     }
   };
 
+  const [selectedBaseName, setSelectedBaseName] = useState('');
+  const [selectedDay, setSelectedDay] = useState('');
   const [showModal, setShowModal] = useState(false);
+
+  // Group activities by base name
+  const groupedActivities = activities.reduce((acc, activity) => {
+    const baseName = activity.name.replace(/\s*\(.*\)\s*/, '').trim();
+    if (!acc[baseName]) acc[baseName] = [];
+    acc[baseName].push(activity);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  const availableDays = selectedBaseName ? groupedActivities[selectedBaseName] : [];
+  
+  // Update selectedActivity when base name or day changes
+  useEffect(() => {
+    if (!selectedBaseName) {
+      setSelectedActivity('');
+      setSelectedDay('');
+      return;
+    }
+
+    const options = groupedActivities[selectedBaseName];
+    if (options.length === 1) {
+      setSelectedActivity(options[0].id);
+      setSelectedDay('');
+    } else if (selectedDay) {
+      const match = options.find(o => o.day_of_week === selectedDay);
+      if (match) setSelectedActivity(match.id);
+    } else {
+      setSelectedActivity('');
+    }
+  }, [selectedBaseName, selectedDay, activities]);
 
   const currentActivity = activities.find(a => a.id === selectedActivity);
 
@@ -105,7 +137,7 @@ export default function CheckInPage() {
           You'll be notified once your GP has been awarded.
         </p>
         <button
-          onClick={() => { setSubmitted(false); setFile(null); setPreview(null); setSelectedActivity(''); }}
+          onClick={() => { setSubmitted(false); setFile(null); setPreview(null); setSelectedBaseName(''); setSelectedDay(''); }}
           className="btn-secondary"
         >
           Submit Another
@@ -128,33 +160,51 @@ export default function CheckInPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="check-in-layout">
         {/* Form Column */}
-        <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: 'fit-content' }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Activity</label>
-                {/* Mobile-only help button */}
-                <button 
-                  type="button"
-                  onClick={() => setShowModal(true)}
-                  className="md:hidden flex items-center gap-1 text-primary text-xs font-bold"
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Activity Category</label>
+                  <button 
+                    type="button"
+                    onClick={() => setShowModal(true)}
+                    className="mobile-only-btn flex items-center gap-1 text-primary text-xs font-bold"
+                  >
+                    <HelpCircle size={14} /> View Reference
+                  </button>
+                </div>
+                <select
+                  value={selectedBaseName}
+                  onChange={(e) => setSelectedBaseName(e.target.value)}
+                  style={{ width: '100%', background: 'var(--surface-hover)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.75rem', color: 'var(--text-main)', outline: 'none' }}
+                  required
                 >
-                  <HelpCircle size={14} /> View Reference
-                </button>
+                  <option value="">Select an activity...</option>
+                  {Object.keys(groupedActivities).map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
               </div>
-              <select
-                value={selectedActivity}
-                onChange={(e) => setSelectedActivity(e.target.value)}
-                style={{ width: '100%', background: 'var(--surface-hover)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.75rem', color: 'var(--text-main)', outline: 'none' }}
-                required
-              >
-                <option value="">Select an activity...</option>
-                {activities.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name} (+{a.points} GP)</option>
-                ))}
-              </select>
+
+              {availableDays.length > 1 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Select Day</label>
+                  <select
+                    value={selectedDay}
+                    onChange={(e) => setSelectedDay(e.target.value)}
+                    style={{ width: '100%', background: 'var(--surface-hover)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.75rem', color: 'var(--text-main)', outline: 'none' }}
+                    required
+                  >
+                    <option value="">Choose the day...</option>
+                    {availableDays.map((d: any) => (
+                      <option key={d.id} value={d.day_of_week}>{d.day_of_week}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -233,8 +283,8 @@ export default function CheckInPage() {
         </section>
 
         {/* Reference Column (Desktop Only) */}
-        <section className="hidden md:flex flex-col gap-6">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <section className="reference-column">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Reference Guide</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700 }}>
               <HelpCircle size={14} />
@@ -299,7 +349,39 @@ export default function CheckInPage() {
         </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .check-in-layout {
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+        }
+
+        .mobile-only-btn {
+          display: flex;
+        }
+
+        .reference-column {
+          display: none;
+        }
+
+        @media (min-width: 768px) {
+          .check-in-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+          }
+          
+          .mobile-only-btn {
+            display: none !important;
+          }
+
+          .reference-column {
+            display: flex;
+            flex-direction: column;
+          }
+        }
+      `}</style>
     </div>
   );
 }
