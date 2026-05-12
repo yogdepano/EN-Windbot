@@ -17,7 +17,7 @@ export default async function DashboardOverview() {
   const profile = await gpService.getProfile(user.id);
   
   // Fetch real check-ins
-  const { data: recentCheckins } = await gpService.getRecentCheckIns(user.id, 5);
+  const recentCheckins = await gpService.getRecentCheckIns(user.id, 5);
 
   return (
     <div className="space-y-8">
