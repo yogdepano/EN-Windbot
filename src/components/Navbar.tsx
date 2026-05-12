@@ -25,7 +25,6 @@ export default function Navbar() {
               <Link href="/dashboard" className="text-sm font-medium text-text-muted hover:text-primary transition-colors hidden md:block">Overview</Link>
               <Link href="/dashboard/check-in" className="text-sm font-medium text-text-muted hover:text-primary transition-colors hidden md:block">Submit Proof</Link>
               <Link href="/dashboard/rewards" className="text-sm font-medium text-text-muted hover:text-primary transition-colors hidden md:block">Rewards</Link>
-              <Link href="/dashboard/referrals" className="text-sm font-medium text-text-muted hover:text-primary transition-colors hidden md:block">Referrals</Link>
               
               {isAdmin && (
                 <>
