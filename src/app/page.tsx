@@ -1,16 +1,14 @@
 'use client';
 
-import Navbar from '@/components/Navbar';
 import { Award, CheckCircle, Zap, ShieldCheck, ChevronRight, ClipboardCheck } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default function EveryNationLanding() {
   return (
-    <main className="min-h-screen flex flex-col bg-[#060608] overflow-hidden" id="en-portal-v1-0-9">
-      <Navbar />
+    <main className="flex flex-col bg-[#060608] overflow-hidden" id="en-portal-v1-1-0" style={{ position: 'relative', zIndex: 100, minHeight: 'calc(100vh - 80px)' }}>
       
-      <div className="split-screen relative">
+      <div className="split-screen relative" style={{ zIndex: 110 }}>
         {/* Ambient Background */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-glow rounded-full blur-[100px]"></div>
@@ -117,7 +115,7 @@ export default function EveryNationLanding() {
               <p className="text-xs uppercase tracking-widest font-bold" style={{ fontSize: '10px' }}>Every Nation Guild System</p>
               <div className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <div className="status-dot"></div>
-                <p className="text-xs font-mono" style={{ fontSize: '10px' }}>v1.0.9</p>
+                <p className="text-xs font-mono" style={{ fontSize: '10px' }}>v1.1.0</p>
               </div>
             </div>
           </div>
