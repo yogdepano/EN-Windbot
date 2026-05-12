@@ -1,4 +1,3 @@
-import DashboardNav from '@/components/DashboardNav';
 import { createClient } from '@/lib/supabaseServer';
 
 export default async function DashboardLayout({
@@ -22,8 +21,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen flex flex-col">
       <div className="container flex-1 flex flex-col md:flex-row gap-4 md:gap-8 px-0 md:px-8">
-        <DashboardNav isAdmin={isAdmin} />
-        <main className="flex-1 py-4 md:py-8 px-4 md:px-0 animate-fade-in overflow-hidden">
+        <main className="flex-1 py-4 md:py-8 px-4 md:px-0 animate-fade-in overflow-hidden w-full">
           {children}
         </main>
       </div>

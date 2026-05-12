@@ -7,13 +7,20 @@ import { User, Session } from '@supabase/supabase-js';
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchRole = async (userId: string) => {
+      const { data } = await supabase.from('profiles').select('role').eq('id', userId).single();
+      setIsAdmin(data?.role === 'admin');
+    };
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) fetchRole(session.user.id);
       setLoading(false);
     });
 
@@ -21,6 +28,8 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) fetchRole(session.user.id);
+      else setIsAdmin(false);
       setLoading(false);
     });
 
@@ -42,5 +51,5 @@ export function useAuth() {
     if (error) console.error('Error signing out:', error.message);
   };
 
-  return { user, session, loading, signInWithDiscord, signOut };
+  return { user, session, isAdmin, loading, signInWithDiscord, signOut };
 }
