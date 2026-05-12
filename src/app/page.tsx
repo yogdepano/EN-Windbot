@@ -15,119 +15,99 @@ export default function Home() {
           <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[100px]"></div>
         </div>
 
-        <div className="container h-full relative z-10 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 h-full items-center">
+        <div className="container h-full relative z-10 py-4 flex items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full items-stretch">
             
-            {/* Left Column: Hero (7/12) */}
-            <div className="lg:col-span-7 flex flex-col gap-8 animate-fade-in pr-8">
+            {/* Left Column: Hero */}
+            <div className="flex flex-col justify-center gap-6 animate-fade-in pr-4">
               <header>
-                <div className="flex items-center gap-4 mb-6">
-                  <img src="/logo.png" alt="EN Logo" className="w-16 h-16 md:w-20 md:h-20 object-contain" />
+                <div className="flex items-center gap-3 mb-4">
+                  <img src="/logo.png" alt="EN Logo" className="w-12 h-12 md:w-16 md:h-16 object-contain" />
                   <h1 className="leading-none">
-                    <span className="block text-text-main text-xl font-medium mb-2">Welcome to the</span>
-                    <span className="gold-gradient text-5xl md:text-7xl font-black block">Every Nation</span>
+                    <span className="block text-text-main text-lg font-medium mb-1">Welcome to the</span>
+                    <span className="gold-gradient text-4xl md:text-6xl font-black block leading-none">Every Nation</span>
                   </h1>
                 </div>
-                <h2 className="text-secondary text-3xl md:text-4xl font-bold mb-6 tracking-tight">Rewards Tracker</h2>
+                <h2 className="text-secondary text-2xl md:text-3xl font-bold mb-4 tracking-tight">Rewards Tracker</h2>
                 
-                <p className="max-w-xl text-text-muted text-base leading-relaxed">
+                <p className="max-w-md text-text-muted text-sm leading-relaxed mb-6">
                   Earn <span className="text-primary font-bold">Echo Beads</span> by participating in guild activities. 
-                  Redeem them for Monthly Passes, Battle Passes, and premium shop items.
+                  Redeem them for Monthly Passes and premium shop items.
                 </p>
               </header>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <a href="/dashboard/check-in" className="btn-primary px-8 py-3 text-base font-bold flex items-center justify-center gap-2">
-                  Start Earning Now
-                  <ChevronRight size={18} />
+              <div className="flex gap-4 mb-2">
+                <a href="/dashboard/check-in" className="btn-primary px-6 py-2.5 text-sm font-bold flex items-center justify-center gap-2">
+                  Start Earning
+                  <ChevronRight size={16} />
                 </a>
-                <a href="/dashboard/rewards" className="btn-secondary px-8 py-3 text-base font-bold">
-                  View Reward Catalog
+                <a href="/dashboard/rewards" className="btn-secondary px-6 py-2.5 text-sm font-bold">
+                  Rewards Catalog
                 </a>
               </div>
 
               {/* Summary Cards */}
-              <div className="flex flex-col gap-4 max-w-lg">
-                <div className="card bg-white/[0.03] border-white/5 p-5 group hover:border-primary/20 transition-all flex items-center gap-6">
-                  <Zap className="text-primary group-hover:scale-110 transition-transform flex-shrink-0" size={24} />
+              <div className="space-y-3 max-w-sm">
+                <div className="card bg-white/[0.02] border-white/5 p-4 flex items-center gap-4 transition-all">
+                  <Zap className="text-primary flex-shrink-0" size={20} />
                   <div>
-                    <h3 className="text-sm font-bold mb-1 uppercase tracking-wide">Weekly Earnings</h3>
-                    <p className="text-[11px] text-text-muted leading-relaxed">Earn up to <span className="text-primary font-bold">40 GP</span> every week through guild events and goals.</p>
+                    <h3 className="text-xs font-bold uppercase tracking-wide">Weekly Earnings</h3>
+                    <p className="text-[10px] text-text-muted leading-relaxed">Earn up to <span className="text-primary font-bold">40 GP</span> every week.</p>
                   </div>
                 </div>
                 
-                <div className="card bg-white/[0.03] border-white/5 p-5 group hover:border-secondary/20 transition-all flex items-center gap-6">
-                  <Award className="text-secondary group-hover:scale-110 transition-transform flex-shrink-0" size={24} />
+                <div className="card bg-white/[0.02] border-white/5 p-4 flex items-center gap-4 transition-all">
+                  <Award className="text-secondary flex-shrink-0" size={20} />
                   <div>
-                    <h3 className="text-sm font-bold mb-1 uppercase tracking-wide">Exclusive Rewards</h3>
-                    <p className="text-[11px] text-text-muted leading-relaxed">Redeem for Monthly Passes and Battle Passes at a <span className="text-text-main font-bold">1:1 Echo Bead rate</span>.</p>
+                    <h3 className="text-xs font-bold uppercase tracking-wide">Exclusive Rewards</h3>
+                    <p className="text-[10px] text-text-muted leading-relaxed">1:1 Echo Bead redemption rate.</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-6 text-text-muted opacity-40 text-[10px] font-bold uppercase tracking-widest">
+              <div className="flex gap-4 text-text-muted opacity-40 text-[9px] font-bold uppercase tracking-widest mt-2">
                 <div className="flex items-center gap-1.5"><Award size={12} /> Participate</div>
                 <div className="flex items-center gap-1.5"><CheckCircle size={12} /> Verify</div>
                 <div className="flex items-center gap-1.5"><Zap size={12} /> Redeem</div>
               </div>
             </div>
 
-            {/* Right Column: Guide (5/12) */}
-            <div className="lg:col-span-5 hidden lg:block">
-              <section className="card bg-surface/40 backdrop-blur-xl border-primary/20 p-8 relative overflow-hidden shadow-2xl shadow-primary/5 h-full max-h-[600px] flex flex-col justify-center">
-                <div className="absolute top-0 right-0 p-6 opacity-5">
-                  <ShieldCheck size={100} />
+            {/* Right Column: Guide */}
+            <div className="hidden lg:flex items-center">
+              <section className="card bg-surface/30 backdrop-blur-md border-primary/20 p-6 relative overflow-hidden shadow-xl w-full">
+                <div className="absolute top-0 right-0 p-4 opacity-5">
+                  <ShieldCheck size={80} />
                 </div>
                 
-                <h2 className="text-xl font-bold mb-8 flex items-center gap-3">
-                  <ShieldCheck className="text-primary" size={24} />
+                <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
+                  <ShieldCheck className="text-primary" size={20} />
                   How It Works
                 </h2>
 
-                <div className="space-y-6 relative">
+                <div className="space-y-5 relative">
                   {/* Vertical Line */}
-                  <div className="absolute left-[19px] top-2 bottom-2 w-px bg-white/10 z-0"></div>
+                  <div className="absolute left-[17px] top-2 bottom-2 w-px bg-white/10 z-0"></div>
 
                   {[
-                    { 
-                      icon: ShieldCheck, 
-                      title: 'Join the Guild', 
-                      desc: 'Be an active member of Every Nation in Where Winds Meet and our Discord server.',
-                      color: 'bg-primary/20 text-primary'
-                    },
-                    { 
-                      icon: Zap, 
-                      title: 'Attend Events', 
-                      desc: 'Participate in Breaking Army, Guild War, and other weekly guild activities.',
-                      color: 'bg-secondary/20 text-secondary'
-                    },
-                    { 
-                      icon: ClipboardCheck, 
-                      title: 'Submit Proof', 
-                      desc: 'Upload screenshots of your participation. Admins verify submissions within 24h.',
-                      color: 'bg-success/20 text-success'
-                    },
-                    { 
-                      icon: GiftIcon, 
-                      title: 'Redeem Points', 
-                      desc: 'Spend your earned GP directly on premium rewards in the reward catalog.',
-                      color: 'bg-warning/20 text-warning'
-                    }
+                    { icon: ShieldCheck, title: 'Join the Guild', desc: 'Member of Every Nation in-game & Discord.', color: 'text-primary' },
+                    { icon: Zap, title: 'Attend Events', desc: 'Participate in Breaking Army & Guild War.', color: 'text-secondary' },
+                    { icon: ClipboardCheck, title: 'Submit Proof', desc: 'Upload screenshots. Verified in 24h.', color: 'text-success' },
+                    { icon: GiftIcon, title: 'Redeem Points', desc: 'Spend earned GP on premium rewards.', color: 'text-warning' }
                   ].map((step, i) => (
-                    <div key={i} className="flex gap-5 items-start relative z-10 group">
-                      <div className={`flex-shrink-0 w-10 h-10 rounded-full ${step.color} flex items-center justify-center font-bold border border-white/10 group-hover:scale-110 transition-transform`}>
+                    <div key={i} className="flex gap-4 items-start relative z-10">
+                      <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center ${step.color}`}>
                         <step.icon size={16} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold mb-0.5 uppercase tracking-wider">{step.title}</h4>
-                        <p className="text-[11px] text-text-muted leading-relaxed">{step.desc}</p>
+                        <h4 className="text-[11px] font-bold mb-0.5 uppercase tracking-wider">{step.title}</h4>
+                        <p className="text-[10px] text-text-muted leading-tight">{step.desc}</p>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-white/5 text-center">
-                  <p className="text-[9px] text-text-muted uppercase tracking-[0.2em] font-bold">Official Guild Rewards Portal</p>
+                <div className="mt-6 pt-4 border-t border-white/5 text-center">
+                  <p className="text-[8px] text-text-muted uppercase tracking-widest font-bold">Official Guild Rewards Portal</p>
                 </div>
               </section>
             </div>
