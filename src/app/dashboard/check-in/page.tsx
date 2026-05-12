@@ -116,7 +116,7 @@ export default function CheckInPage() {
       setSelectedActivity(options[0].id);
       setSelectedDay('');
     } else if (selectedDay) {
-      const match = options.find(o => o.day_of_week === selectedDay);
+      const match = options.find((o: any) => o.day_of_week === selectedDay);
       if (match) setSelectedActivity(match.id);
     } else {
       setSelectedActivity('');
