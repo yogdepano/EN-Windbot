@@ -3,6 +3,8 @@
 import Navbar from '@/components/Navbar';
 import { Award, CheckCircle, Zap, ShieldCheck, ChevronRight, ClipboardCheck } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   return (
     <main className="h-screen flex flex-col bg-background overflow-hidden">
@@ -23,7 +25,7 @@ export default function Home() {
             <div className="max-w-md animate-fade-in">
               <header className="mb-8">
                 <div className="flex items-center gap-4 mb-4">
-                  <img src="/logo.png" alt="Logo" className="w-12 h-12 md:w-14 md:h-14 object-contain" />
+                  <img src="/en-guild-logo.png" alt="Logo" className="w-12 h-12 md:w-14 md:h-14 object-contain" />
                   <div className="leading-tight">
                     <p className="text-[10px] text-text-muted uppercase tracking-[0.3em] font-bold mb-1">Guild Portal</p>
                     <h1 className="text-3xl md:text-5xl font-black gold-gradient leading-none">Every Nation</h1>
@@ -105,8 +107,9 @@ export default function Home() {
                 ))}
               </div>
 
-              <div className="mt-12 pt-6 border-t border-white/5 opacity-40">
-                <p className="text-[8px] text-center uppercase tracking-[0.4em] font-bold">Every Nation Guild System</p>
+              <div className="mt-12 pt-6 border-t border-white/5 opacity-40 flex justify-between items-center">
+                <p className="text-[8px] uppercase tracking-[0.4em] font-bold">Every Nation Guild System</p>
+                <p className="text-[8px] font-mono">v1.0.5</p>
               </div>
             </div>
           </div>
