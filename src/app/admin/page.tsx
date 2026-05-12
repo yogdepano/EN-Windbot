@@ -56,9 +56,9 @@ export default function AdminHub() {
               <ClipboardCheck className="text-warning" size={20} />
               Recent Pending Proofs
             </h3>
-            <button className="text-xs text-primary font-bold hover:underline flex items-center gap-1">
-              View All Queue <ArrowUpRight size={14} />
-            </button>
+            <a href="/admin/queue" className="text-xs text-primary font-bold hover:underline flex items-center gap-1">
+              Go to Approval Queue <ArrowUpRight size={14} />
+            </a>
           </div>
           
           <div className="space-y-4">
