@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Upload, HelpCircle, X, CheckCircle, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Upload, HelpCircle, X, CheckCircle, Info, AlertCircle } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,53 +12,95 @@ export default function CheckInPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activities, setActivities] = useState<any[]>([]);
 
-  const activities = [
-    { id: '1', name: 'Breaking Army (Saturday)', points: 5, ref: '/references/Breaking Army.png' },
-    { id: '2', name: 'Breaking Army (Sunday)', points: 5, ref: '/references/Breaking Army.png' },
-    { id: '3', name: 'Guild Heroes Realm', points: 5, ref: '/references/Guild Heroe\'s Realm.png' },
-    { id: '4', name: 'Guild Party', points: 5, ref: '/references/Guild Party.png' },
-    { id: '5', name: 'Guild War (Saturday)', points: 5, ref: '/references/Guild War.png' },
-    { id: '6', name: 'Guild War (Sunday)', points: 5, ref: '/references/Guild War.png' },
-    { id: '7', name: 'Reach 2,000 Weekly Activity', points: 10, ref: '/references/Weekly Activity Points.png' },
-  ];
+  useEffect(() => {
+    supabase.from('activities').select('*').eq('is_active', true).then(({ data }) => {
+      if (data) setActivities(data);
+    });
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
+      reader.onloadend = () => setPreview(reader.result as string);
       reader.readAsDataURL(selectedFile);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedActivity || !file) return;
-    
+
     setIsSubmitting(true);
-    // Mock upload
-    setTimeout(() => {
-      setIsSubmitting(false);
+    setError(null);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not logged in');
+
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('discord_id', user.user_metadata?.provider_id || user.id)
+        .single();
+
+      const profileId = profile?.id || user.id;
+
+      // Upload screenshot to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profileId}/${Date.now()}.${fileExt}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('proofs')
+        .upload(fileName, file);
+
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('proofs')
+        .getPublicUrl(fileName);
+
+      // Calculate week start (Monday)
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+      const weekStr = weekStart.toISOString().split('T')[0];
+
+      // Submit check-in
+      const { error: checkinError } = await supabase.from('check_ins').insert({
+        user_id: profileId,
+        activity_id: selectedActivity,
+        screenshot_url: publicUrl,
+        week_start_date: weekStr,
+        status: 'pending'
+      });
+
+      if (checkinError) throw new Error(checkinError.message);
+
       setSubmitted(true);
-    }, 2000);
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (submitted) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-12 space-y-6">
-        <div className="w-20 h-20 bg-success/10 text-success rounded-full flex items-center justify-center mx-auto">
+      <div className="max-w-2xl mx-auto text-center py-12" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+        <div style={{ width: 80, height: 80, background: 'var(--success-10)', color: 'var(--success)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <CheckCircle size={48} />
         </div>
-        <h2 className="text-3xl">Submission Received!</h2>
-        <p className="text-text-muted text-lg">
-          Your proof has been submitted and is now pending admin approval. 
+        <h2 style={{ fontSize: '2rem' }}>Submission Received!</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
+          Your proof has been submitted and is pending admin approval. 
           You'll be notified once your GP has been awarded.
         </p>
-        <button 
+        <button
           onClick={() => { setSubmitted(false); setFile(null); setPreview(null); setSelectedActivity(''); }}
           className="btn-secondary"
         >
@@ -67,25 +110,32 @@ export default function CheckInPage() {
     );
   }
 
-  const currentRef = activities.find(a => a.id === selectedActivity)?.ref;
+  const currentActivity = activities.find(a => a.id === selectedActivity);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <header>
-        <h2 className="text-3xl mb-1">Submit Activity Proof</h2>
-        <p className="text-text-muted">Select an activity and upload a screenshot to claim your GP.</p>
+        <h2 style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>Submit Activity Proof</h2>
+        <p style={{ color: 'var(--text-muted)' }}>Select an activity and upload a screenshot to claim your GP.</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {error && (
+        <div style={{ display: 'flex', gap: '0.75rem', padding: '1rem', background: 'var(--error-10)', border: '1px solid var(--error)', borderRadius: 8, color: 'var(--error)' }}>
+          <AlertCircle size={20} style={{ flexShrink: 0 }} />
+          <p>{error}</p>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
         {/* Form */}
-        <section className="card space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-text-muted">Activity</label>
-              <select 
+        <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Activity</label>
+              <select
                 value={selectedActivity}
                 onChange={(e) => setSelectedActivity(e.target.value)}
-                className="w-full bg-surface-hover border border-white/10 rounded-lg p-3 text-text-main outline-none focus:border-primary transition-colors"
+                style={{ width: '100%', background: 'var(--surface-hover)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.75rem', color: 'var(--text-main)', outline: 'none' }}
                 required
               >
                 <option value="">Select an activity...</option>
@@ -95,12 +145,21 @@ export default function CheckInPage() {
               </select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-text-muted">Screenshot Proof</label>
-              <div 
-                className={`border-2 border-dashed rounded-xl p-8 transition-all text-center flex flex-col items-center justify-center gap-4 ${
-                  preview ? 'border-success/50 bg-success/5' : 'border-white/10 hover:border-primary/50 hover:bg-primary/5'
-                }`}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Screenshot Proof</label>
+              <div
+                style={{
+                  border: `2px dashed ${preview ? 'var(--success)' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: 12,
+                  padding: '2rem',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  background: preview ? 'var(--success-10)' : 'transparent',
+                  transition: 'all 0.3s ease'
+                }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -114,87 +173,82 @@ export default function CheckInPage() {
                 }}
               >
                 {preview ? (
-                  <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/10">
-                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                    <button 
+                  <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <img src={preview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button
                       type="button"
                       onClick={() => { setFile(null); setPreview(null); }}
-                      className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-red-500 transition-colors"
+                      style={{ position: 'absolute', top: 8, right: 8, padding: 4, background: 'rgba(0,0,0,0.6)', borderRadius: '50%', color: 'white' }}
                     >
                       <X size={16} />
                     </button>
                   </div>
                 ) : (
                   <>
-                    <div className="p-4 bg-white/5 rounded-full text-text-muted">
+                    <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', color: 'var(--text-muted)' }}>
                       <Upload size={32} />
                     </div>
                     <div>
-                      <p className="font-bold">Click to upload or drag and drop</p>
-                      <p className="text-xs text-text-muted mt-1">PNG, JPG or WebP (max. 10MB)</p>
+                      <p style={{ fontWeight: 600 }}>Click to upload or drag and drop</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>PNG, JPG or WebP (max 10MB)</p>
                     </div>
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      id="file-upload" 
-                      accept="image/*"
-                      onChange={handleFileChange}
-                    />
-                    <label htmlFor="file-upload" className="btn-secondary py-2 text-xs">Browse Files</label>
+                    <input type="file" style={{ display: 'none' }} id="file-upload" accept="image/*" onChange={handleFileChange} />
+                    <label htmlFor="file-upload" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', cursor: 'pointer' }}>Browse Files</label>
                   </>
                 )}
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              className="btn-primary w-full py-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            <button
+              type="submit"
+              className="btn-primary"
+              style={{ width: '100%', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: (!selectedActivity || !file || isSubmitting) ? 0.5 : 1, cursor: (!selectedActivity || !file || isSubmitting) ? 'not-allowed' : 'pointer' }}
               disabled={!selectedActivity || !file || isSubmitting}
             >
               {isSubmitting ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
+                  <div style={{ width: 20, height: 20, border: '2px solid rgba(0,0,0,0.2)', borderTop: '2px solid #000', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                   Submitting...
                 </>
               ) : 'Submit for Review'}
             </button>
           </form>
 
-          <div className="flex gap-3 p-4 bg-secondary/5 border border-secondary/20 rounded-lg text-sm text-secondary">
-            <Info size={20} className="flex-shrink-0" />
-            <p>Admin approval is required before GP is awarded. Duplicate submissions for the same activity/week will be rejected.</p>
+          <div style={{ display: 'flex', gap: '0.75rem', padding: '1rem', background: 'var(--secondary-10)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 8, fontSize: '0.85rem', color: 'var(--secondary)' }}>
+            <Info size={20} style={{ flexShrink: 0 }} />
+            <p>Admin approval is required before GP is awarded.</p>
           </div>
         </section>
 
         {/* Reference */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-widest text-text-muted">Reference Guide</label>
-            <div className="flex items-center gap-1 text-primary text-xs font-bold">
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Reference Guide</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700 }}>
               <HelpCircle size={14} />
               <span>Matching Example</span>
             </div>
           </div>
 
-          <div className="card h-[400px] flex flex-col items-center justify-center relative overflow-hidden bg-surface-alt">
-            {currentRef ? (
-              <div className="w-full h-full p-4 flex flex-col gap-4">
-                <p className="text-xs text-text-muted italic">Your screenshot should look similar to this:</p>
-                <div className="flex-1 rounded-lg overflow-hidden border border-white/5">
-                  <img src={currentRef} alt="Reference" className="w-full h-full object-contain bg-black/20" />
+          <div className="card" style={{ height: 400, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-alt)', overflow: 'hidden' }}>
+            {currentActivity?.reference_image_path ? (
+              <div style={{ width: '100%', height: '100%', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Your screenshot should look similar to this:</p>
+                <div style={{ flex: 1, borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <img src={currentActivity.reference_image_path} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'rgba(0,0,0,0.2)' }} />
                 </div>
               </div>
             ) : (
-              <div className="text-center p-8 opacity-40">
-                <HelpCircle size={48} className="mx-auto mb-4" />
+              <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.4 }}>
+                <HelpCircle size={48} style={{ margin: '0 auto 1rem' }} />
                 <p>Select an activity to see the required screenshot format.</p>
               </div>
             )}
           </div>
 
-          <div className="p-4 border border-white/5 rounded-lg text-xs text-text-muted space-y-2">
-            <p className="font-bold text-text-main">Submission Tips:</p>
-            <ul className="list-disc ml-4 space-y-1">
+          <div style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            <p style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>Submission Tips:</p>
+            <ul style={{ listStyle: 'disc', marginLeft: '1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <li>Ensure your in-game name is visible.</li>
               <li>Show the relevant UI element or event completion message.</li>
               <li>Don't crop the image too tightly.</li>
@@ -202,6 +256,8 @@ export default function CheckInPage() {
           </div>
         </section>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

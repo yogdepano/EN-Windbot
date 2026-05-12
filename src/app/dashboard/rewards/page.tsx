@@ -1,85 +1,130 @@
-import { Gift, Zap, CheckCircle2, ShoppingBag } from 'lucide-react';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Gift, Zap, ShoppingBag, Loader } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 export const dynamic = 'force-dynamic';
 
-export default function RewardsCatalog() {
-  const rewards = [
-    { id: 1, name: 'Monthly Pass', cost: 300, desc: 'A 30-day premium subscription for Where Winds Meet.', available: true },
-    { id: 2, name: 'Battle Pass', cost: 500, desc: 'Unlock the premium track of the current season\'s Battle Pass.', available: true },
-    { id: 3, name: 'Premium Battle Pass', cost: 1000, desc: 'Unlock the premium track plus 20 level skips and exclusive cosmetics.', available: true },
-    { id: 4, name: 'Shop Item (Any)', cost: 'Cost in Echo Beads', desc: 'Redeem any item from the in-game shop. Enter item name in notes.', available: true },
-  ];
+export default function RewardCatalog() {
+  const { user } = useAuth();
+  const [rewards, setRewards] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [redeeming, setRedeeming] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const userGP = 150; // Mock
+  useEffect(() => {
+    async function fetchData() {
+      const { data: rewardData } = await supabase.from('rewards').select('*').eq('availability', true).order('cost');
+      if (rewardData) setRewards(rewardData);
+
+      if (user) {
+        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (profileData) setProfile(profileData);
+      }
+      setLoading(false);
+    }
+    fetchData();
+  }, [user]);
+
+  const handleRedeem = async (reward: any) => {
+    if (!user || !profile) return;
+    if (profile.gp_balance < reward.cost) {
+      setMessage({ type: 'error', text: `Insufficient GP. You need ${reward.cost} GP but only have ${profile.gp_balance} GP.` });
+      return;
+    }
+
+    setRedeeming(reward.id);
+    const { error } = await supabase.from('redemption_requests').insert({
+      user_id: profile.id,
+      reward_id: reward.id,
+      status: 'pending'
+    });
+
+    if (error) {
+      setMessage({ type: 'error', text: 'Failed to submit redemption. Please try again.' });
+    } else {
+      setMessage({ type: 'success', text: `Redemption request for "${reward.name}" submitted! An admin will process it shortly.` });
+    }
+    setRedeeming(null);
+    setTimeout(() => setMessage(null), 5000);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
+        <Loader size={32} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      <header className="flex justify-between items-end">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
-          <h2 className="text-3xl mb-1">Reward Catalog</h2>
-          <p className="text-text-muted">Exchange your earned GP for in-game premium items.</p>
+          <h2 style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>Reward Catalog</h2>
+          <p style={{ color: 'var(--text-muted)' }}>Exchange your GP for in-game rewards at a 1:1 Echo Bead rate.</p>
         </div>
-        <div className="card py-2 px-6 flex items-center gap-3 bg-primary/10 border-primary/20">
-          <Zap size={20} className="text-primary" />
-          <div>
-            <p className="text-[10px] text-text-muted uppercase font-bold tracking-tighter">Your Balance</p>
-            <p className="text-xl font-bold gold-gradient">{userGP} GP</p>
+        {profile && (
+          <div style={{ textAlign: 'right', padding: '0.75rem 1.25rem', background: 'var(--surface)', border: '1px solid var(--border-active)', borderRadius: 10 }}>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>Your Balance</p>
+            <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>{profile.gp_balance} GP</p>
           </div>
-        </div>
+        )}
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {rewards.map((reward) => (
-          <div key={reward.id} className="card flex flex-col group">
-            <div className="aspect-video bg-surface-alt rounded-lg mb-6 flex items-center justify-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-              <ShoppingBag size={48} className="text-white/10 group-hover:scale-110 transition-transform group-hover:text-primary/20" />
-              <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
-                <span className="text-xs font-bold px-2 py-1 bg-primary text-black rounded uppercase">Premium</span>
-                <div className="text-right">
-                  <p className="text-[10px] text-white/60 uppercase font-bold">Cost</p>
-                  <p className="text-lg font-bold text-white">{typeof reward.cost === 'number' ? `${reward.cost} GP` : reward.cost}</p>
-                </div>
+      {message && (
+        <div style={{
+          padding: '1rem',
+          borderRadius: 8,
+          background: message.type === 'success' ? 'var(--success-10)' : 'var(--error-10)',
+          border: `1px solid ${message.type === 'success' ? 'var(--success)' : 'var(--error)'}`,
+          color: message.type === 'success' ? 'var(--success)' : 'var(--error)',
+        }}>
+          {message.text}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+        {rewards.map((reward) => {
+          const canAfford = profile && profile.gp_balance >= reward.cost;
+          return (
+            <div key={reward.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, padding: '1rem', opacity: 0.05 }}>
+                <Gift size={64} />
               </div>
-            </div>
-
-            <div className="flex-1 space-y-2">
-              <h3 className="text-lg">{reward.name}</h3>
-              <p className="text-sm text-text-muted leading-relaxed">{reward.desc}</p>
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-white/5">
-              <button 
-                className={`w-full py-3 rounded-lg font-bold text-sm uppercase tracking-widest transition-all ${
-                  typeof reward.cost === 'number' && userGP >= reward.cost 
-                    ? 'bg-primary text-black hover:scale-[1.02] active:scale-[0.98]' 
-                    : 'bg-white/5 text-text-muted cursor-not-allowed'
-                }`}
-                disabled={typeof reward.cost === 'number' && userGP < reward.cost}
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-10)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+                <ShoppingBag size={24} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', color: 'var(--text-main)', textTransform: 'none', letterSpacing: 'normal' }}>{reward.name}</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 4 }}>{reward.description}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
+                <Zap size={16} style={{ color: 'var(--primary)' }} />
+                <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>{reward.cost}</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>GP</span>
+              </div>
+              <button
+                onClick={() => handleRedeem(reward)}
+                disabled={!canAfford || redeeming === reward.id}
+                className={canAfford ? 'btn-primary' : 'btn-secondary'}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  opacity: (!canAfford || redeeming === reward.id) ? 0.5 : 1,
+                  cursor: (!canAfford || redeeming === reward.id) ? 'not-allowed' : 'pointer',
+                }}
               >
-                {typeof reward.cost === 'number' && userGP < reward.cost ? 'Insufficient GP' : 'Redeem Reward'}
+                {redeeming === reward.id ? 'Submitting...' : canAfford ? 'Redeem Now' : `Need ${reward.cost - (profile?.gp_balance || 0)} more GP`}
               </button>
-              {typeof reward.cost === 'number' && userGP < reward.cost && (
-                <p className="text-[10px] text-center mt-2 text-text-muted italic">
-                  Need {reward.cost - userGP} more GP to unlock.
-                </p>
-              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-
-      <section className="card bg-secondary/5 border-secondary/20 flex gap-6 items-center">
-        <div className="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
-          <CheckCircle2 size={32} />
-        </div>
-        <div>
-          <h4 className="font-bold text-lg">Redemption Policy</h4>
-          <p className="text-sm text-text-muted max-w-2xl">
-            Redemptions are processed within 14 days of approval. Ensure your Discord DMs are open so an admin can contact you for delivery. Minimum redemption amount is 300 GP.
-          </p>
-        </div>
-      </section>
     </div>
   );
 }

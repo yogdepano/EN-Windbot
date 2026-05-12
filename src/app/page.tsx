@@ -28,12 +28,12 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col md:flex-row items-center justify-center gap-4">
-            <button className="btn-primary px-10 py-4 text-lg">
+            <a href="/dashboard/check-in" className="btn-primary px-10 py-4 text-lg">
               Start Earning Now
-            </button>
-            <button className="btn-secondary px-10 py-4 text-lg">
+            </a>
+            <a href="/dashboard/rewards" className="btn-secondary px-10 py-4 text-lg">
               View Reward Catalog
-            </button>
+            </a>
           </div>
 
           <div className="mt-16 flex items-center justify-center gap-12 text-text-muted opacity-60 grayscale hover:grayscale-0 transition-all">
