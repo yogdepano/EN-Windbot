@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Upload, HelpCircle, X, CheckCircle, Info } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function CheckInPage() {
   const [selectedActivity, setSelectedActivity] = useState('');
   const [file, setFile] = useState<File | null>(null);
