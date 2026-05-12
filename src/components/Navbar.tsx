@@ -17,14 +17,14 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-6">
-          <Link href="/#rewards" className="text-text-muted hover:text-primary transition-colors">Rewards</Link>
-          <Link href="/#rules" className="text-text-muted hover:text-primary transition-colors">Rules</Link>
+          <Link href="/#rewards" className="text-text-muted hover:text-primary transition-colors hidden md:block">Rewards</Link>
+          <Link href="/#rules" className="text-text-muted hover:text-primary transition-colors hidden md:block">Rules</Link>
           
           {user ? (
             <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="btn-secondary flex items-center gap-2 py-2 px-4 text-sm">
+              <Link href="/dashboard" className="btn-secondary flex items-center gap-2 py-2 px-3 md:px-4 text-sm">
                 <LayoutDashboard size={16} />
-                Dashboard
+                <span className="hidden md:inline">Dashboard</span>
               </Link>
               <button 
                 onClick={() => signOut()}

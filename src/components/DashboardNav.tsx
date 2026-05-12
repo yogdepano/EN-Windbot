@@ -28,42 +28,44 @@ export default function DashboardNav({ isAdmin = false }) {
   ];
 
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-white/5 h-[calc(100vh-80px)] sticky top-20 py-8">
-      <nav className="flex flex-col gap-2">
-        <p className="px-6 text-xs font-bold text-text-muted uppercase tracking-widest mb-4">Member</p>
+    <aside className="w-full md:w-64 flex-shrink-0 md:border-r border-b md:border-b-0 border-white/5 md:h-[calc(100vh-80px)] md:sticky md:top-20 py-4 md:py-8 overflow-x-auto overflow-y-hidden scrollbar-hide">
+      <nav className="flex md:flex-col gap-2 min-w-max md:min-w-0 pb-2 md:pb-0 px-2 md:px-0">
+        <p className="px-6 text-xs font-bold text-text-muted uppercase tracking-widest mb-4 hidden md:block">Member</p>
         {links.map((link) => (
           <Link
             key={link.name}
             href={link.href}
             className={clsx(
-              "flex items-center gap-3 px-6 py-3 transition-all group",
+              "flex items-center gap-3 px-4 md:px-6 py-2 md:py-3 transition-all rounded-full md:rounded-none group",
               pathname === link.href 
-                ? "text-primary bg-primary/5 border-r-2 border-primary" 
+                ? "text-primary bg-primary/5 md:border-r-2 border-b-2 md:border-b-0 border-primary" 
                 : "text-text-muted hover:text-text-main hover:bg-white/5"
             )}
           >
-            <link.icon size={20} />
-            <span className="font-medium">{link.name}</span>
-            {pathname === link.href && <ChevronRight size={16} className="ml-auto" />}
+            <link.icon size={20} className="flex-shrink-0" />
+            <span className="font-medium whitespace-nowrap">{link.name}</span>
+            {pathname === link.href && <ChevronRight size={16} className="ml-auto hidden md:block" />}
           </Link>
         ))}
 
         {isAdmin && (
           <>
-            <p className="px-6 text-xs font-bold text-text-muted uppercase tracking-widest mt-8 mb-4">Admin</p>
+            <div className="w-px h-8 bg-white/10 mx-2 hidden md:block" />
+            <div className="w-px h-8 bg-white/10 mx-2 md:hidden" />
+            <p className="px-6 text-xs font-bold text-text-muted uppercase tracking-widest mt-0 md:mt-8 mb-4 hidden md:block">Admin</p>
             {adminLinks.map((link) => (
               <Link
                 key={link.name}
                 href={link.href}
                 className={clsx(
-                  "flex items-center gap-3 px-6 py-3 transition-all group",
+                  "flex items-center gap-3 px-4 md:px-6 py-2 md:py-3 transition-all rounded-full md:rounded-none group",
                   pathname === link.href 
-                    ? "text-secondary bg-secondary/5 border-r-2 border-secondary" 
+                    ? "text-secondary bg-secondary/5 md:border-r-2 border-b-2 md:border-b-0 border-secondary" 
                     : "text-text-muted hover:text-text-main hover:bg-white/5"
                 )}
               >
-                <link.icon size={20} />
-                <span className="font-medium">{link.name}</span>
+                <link.icon size={20} className="flex-shrink-0" />
+                <span className="font-medium whitespace-nowrap">{link.name}</span>
               </Link>
             ))}
           </>
