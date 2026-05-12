@@ -109,8 +109,6 @@ export default function EveryNationLanding() {
         </div>
       </div>
 
-      </div>
-
       <style jsx global>{`
         :root {
           --white-5: rgba(255, 255, 255, 0.05);
