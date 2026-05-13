@@ -176,29 +176,83 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 
     else if (commandName === 'approve-checkin') {
       const subId = interaction.options.getString('id', true);
-      const { data: sub } = await supabaseAdmin.from('check_ins').select('*, activities(name, points)').eq('id', subId).single();
+      await interaction.deferReply({ ephemeral: true });
+
+      const { data: sub, error: fetchError } = await supabaseAdmin
+        .from('check_ins')
+        .select('*, activities(name, points)')
+        .eq('id', subId)
+        .single();
       
-      if (!sub) return interaction.reply({ content: 'Not found.', ephemeral: true });
+      if (fetchError || !sub) {
+        return interaction.editReply({ content: `❌ Check-in not found: ${subId}` });
+      }
 
-      await supabaseAdmin.rpc('adjust_gp', { p_user_id: sub.user_id, p_amount: sub.activities.points });
-      await supabaseAdmin.from('check_ins').update({ status: 'approved' }).eq('id', subId);
+      if (sub.status === 'approved') {
+        return interaction.editReply({ content: 'ℹ️ This check-in has already been approved.' });
+      }
 
-      await interaction.reply({ content: `Approved **${subId}**.`, ephemeral: true });
+      // Award Points
+      const { error: rpcError } = await supabaseAdmin.rpc('adjust_gp', { 
+        p_user_id: sub.user_id, 
+        p_amount: sub.activities.points 
+      });
+
+      if (rpcError) {
+        console.error('[Admin] RPC Error:', rpcError);
+        return interaction.editReply({ content: `❌ Failed to award points: ${rpcError.message}` });
+      }
+
+      // Update Status
+      const { error: updateError } = await supabaseAdmin
+        .from('check_ins')
+        .update({ 
+          status: 'approved',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: profile.id
+        })
+        .eq('id', subId);
+
+      if (updateError) {
+        console.error('[Admin] Update Error:', updateError);
+        return interaction.editReply({ content: `⚠️ Points awarded, but failed to update status: ${updateError.message}` });
+      }
+
+      await interaction.editReply({ content: `✅ Successfully approved **${sub.activities.name}** for **${subId}** (+${sub.activities.points} GP).` });
     }
 
     else if (commandName === 'adjust-points') {
       const targetUser = interaction.options.getUser('user', true);
       const amount = interaction.options.getInteger('amount', true);
+      const reason = interaction.options.getString('reason', true);
       
+      await interaction.deferReply({ ephemeral: true });
+
       let targetProfile;
       try {
         targetProfile = await getProfile(targetUser.id);
       } catch (e) {
-        return interaction.reply({ content: `Cannot adjust points. **${targetUser.username}** has not logged into the website yet.`, ephemeral: true });
+        return interaction.editReply({ content: `❌ Cannot adjust points. **${targetUser.username}** has not logged into the website yet.` });
       }
 
-      await supabaseAdmin.rpc('adjust_gp', { p_user_id: targetProfile.id, p_amount: amount });
-      await interaction.reply({ content: `Adjusted **${targetUser.username}** by **${amount} GP**.`, ephemeral: true });
+      const { error: adjError } = await supabaseAdmin.rpc('adjust_gp', { 
+        p_user_id: targetProfile.id, 
+        p_amount: amount 
+      });
+
+      if (adjError) {
+        console.error('[Admin] Adjust Error:', adjError);
+        return interaction.editReply({ content: `❌ Failed to adjust points: ${adjError.message}` });
+      }
+
+      // Log the adjustment
+      await supabaseAdmin.from('audit_logs').insert({
+        user_id: profile.id,
+        action: 'manual_gp_adjust',
+        details: { target_id: targetProfile.id, amount, reason }
+      });
+
+      await interaction.editReply({ content: `✅ Adjusted **${targetUser.username}** by **${amount} GP**. Reason: ${reason}` });
     }
 
   } catch (error: any) {
