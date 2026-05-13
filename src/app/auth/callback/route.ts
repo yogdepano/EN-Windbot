@@ -17,8 +17,11 @@ export async function GET(request: Request) {
       }
       return NextResponse.redirect(`${origin}${next}`);
     }
+    
+    // If we reach here, there was an error exchanging the code
+    return NextResponse.redirect(`${origin}/auth/auth-code-error?error=${encodeURIComponent(error?.message || 'Unknown authentication error')}`);
   }
 
   // Return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  return NextResponse.redirect(`${origin}/auth/auth-code-error?error=No_code_provided`);
 }
