@@ -138,16 +138,22 @@ client.on('interactionCreate', async (interaction: Interaction) => {
     if (commandName === 'queue') {
       if (!isAdmin) return interaction.reply({ content: '⛔ This command is for admins only.', ephemeral: true });
 
+      await interaction.deferReply({ ephemeral: true });
+      console.log(`[Admin] /queue requested by ${user.tag}`);
+
       const { data: pending, error: queueError } = await supabaseAdmin
         .from('check_ins')
         .select('*, profiles:profiles!check_ins_user_id_fkey(username), activities(name)')
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
 
-      if (queueError) throw queueError;
+      if (queueError) {
+        console.error('[Admin] /queue error:', queueError);
+        return interaction.editReply({ content: '❌ Failed to fetch the queue.' });
+      }
 
       if (!pending || pending.length === 0) {
-        return interaction.reply({ content: '☕ The approval queue is empty! Great job.', ephemeral: true });
+        return interaction.editReply({ content: '☕ The approval queue is empty! Great job.' });
       }
 
       const embed = new EmbedBuilder()
@@ -156,7 +162,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
         .setDescription(`There are currently **${pending.length}** pending submissions.`)
         .addFields(
           pending.slice(0, 10).map((p: any) => ({
-            name: `${p.profiles?.username} - ${p.activities?.name}`,
+            name: `${p.profiles?.username || 'Unknown User'} - ${p.activities?.name || 'Unknown Activity'}`,
             value: `ID: \`${p.id}\`\n[View Screenshot](${p.screenshot_url})\nSubmitted: <t:${Math.floor(new Date(p.created_at).getTime() / 1000)}:R>`
           }))
         );
@@ -165,7 +171,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
         embed.setFooter({ text: `Showing first 10 items. Visit the admin dashboard for the full list.` });
       }
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.editReply({ embeds: [embed] });
     }
 
     else if (commandName === 'approve-checkin') {
