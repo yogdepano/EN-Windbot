@@ -60,7 +60,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
         )
         .setThumbnail(user.displayAvatarURL());
       
-      await interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     else if (commandName === 'checkin') {
@@ -129,7 +129,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
         .setColor(PURPLE)
         .addFields((history || []).map(h => ({ name: h.activities.name, value: `${h.status.toUpperCase()} • +${h.activities.points} GP` })));
 
-      await interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     // --- ADMIN COMMANDS ---
