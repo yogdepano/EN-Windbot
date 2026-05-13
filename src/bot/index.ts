@@ -175,18 +175,29 @@ client.on('interactionCreate', async (interaction: Interaction) => {
     }
 
     else if (commandName === 'approve-checkin') {
-      const subId = interaction.options.getString('id', true);
+      const subId = interaction.options.getString('id', true).trim();
       await interaction.deferReply({ ephemeral: true });
 
-      const { data: sub, error: fetchError } = await supabaseAdmin
-        .from('check_ins')
-        .select('*, activities(name, points)')
-        .eq('id', subId)
-        .single();
+      // Support partial ID matching (min 4 characters for safety)
+      let query = supabaseAdmin.from('check_ins').select('*, activities(name, points)');
       
-      if (fetchError || !sub) {
-        return interaction.editReply({ content: `❌ Check-in not found: ${subId}` });
+      if (subId.length >= 4 && subId.length < 36) {
+        query = query.ilike('id', `${subId}%`);
+      } else {
+        query = query.eq('id', subId);
       }
+
+      const { data: matches, error: fetchError } = await query.limit(2);
+      
+      if (fetchError || !matches || matches.length === 0) {
+        return interaction.editReply({ content: `❌ No check-in found starting with: **${subId}**` });
+      }
+
+      if (matches.length > 1) {
+        return interaction.editReply({ content: `⚠️ Multiple check-ins found starting with **${subId}**. Please provide more characters for a unique match.` });
+      }
+
+      const sub = matches[0];
 
       if (sub.status === 'approved') {
         return interaction.editReply({ content: 'ℹ️ This check-in has already been approved.' });
