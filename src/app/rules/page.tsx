@@ -57,7 +57,7 @@ export default function RulesPage() {
                   <tr className="border-b border-white-5"><td className="px-4 py-3">Guild Party (once per week)</td><td className="px-4 py-3 font-bold text-primary">5 GP</td></tr>
                   <tr className="border-b border-white-5"><td className="px-4 py-3">Guild War (Saturday)</td><td className="px-4 py-3 font-bold text-primary">5 GP</td></tr>
                   <tr className="border-b border-white-5"><td className="px-4 py-3">Guild War (Sunday)</td><td className="px-4 py-3 font-bold text-primary">5 GP</td></tr>
-                  <tr className="border-b border-white-5"><td className="px-4 py-3">Reach 2,000 Weekly Activity</td><td className="px-4 py-3 font-bold text-primary">10 GP</td></tr>
+                  <tr className="border-b border-white-5"><td className="px-4 py-3">Reach 2,500 Weekly Activity</td><td className="px-4 py-3 font-bold text-primary">10 GP</td></tr>
                 </tbody>
               </table>
             </div>
