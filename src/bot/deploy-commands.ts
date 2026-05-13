@@ -22,7 +22,7 @@ const commands = [
           { name: 'Guild Party', value: 'Guild Party' },
           { name: 'Guild War (Sat)', value: 'Guild War (Saturday)' },
           { name: 'Guild War (Sun)', value: 'Guild War (Sunday)' },
-          { name: 'Weekly Activity 2000', value: 'Reach 2,000 Weekly Activity' },
+          { name: 'Weekly Activity 2500', value: 'Reach 2,500 Weekly Activity' },
         ))
     .addAttachmentOption(option => 
       option.setName('screenshot')
@@ -53,6 +53,11 @@ const commands = [
     .setName('approve-checkin')
     .setDescription('Approve a pending check-in')
     .addStringOption(option => option.setName('id').setDescription('The check-in ID').setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName('queue')
+    .setDescription('View the pending check-in approval queue')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()

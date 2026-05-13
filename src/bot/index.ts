@@ -133,6 +133,40 @@ client.on('interactionCreate', async (interaction: Interaction) => {
     }
 
     // --- ADMIN COMMANDS ---
+    const isAdmin = profile.role === 'admin';
+
+    if (commandName === 'queue') {
+      if (!isAdmin) return interaction.reply({ content: '⛔ This command is for admins only.', ephemeral: true });
+
+      const { data: pending, error: queueError } = await supabaseAdmin
+        .from('check_ins')
+        .select('*, profiles:profiles!check_ins_user_id_fkey(username), activities(name)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+
+      if (queueError) throw queueError;
+
+      if (!pending || pending.length === 0) {
+        return interaction.reply({ content: '☕ The approval queue is empty! Great job.', ephemeral: true });
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle('📋 Pending Approval Queue')
+        .setColor(PURPLE)
+        .setDescription(`There are currently **${pending.length}** pending submissions.`)
+        .addFields(
+          pending.slice(0, 10).map((p: any) => ({
+            name: `${p.profiles?.username} - ${p.activities?.name}`,
+            value: `ID: \`${p.id}\`\n[View Screenshot](${p.screenshot_url})\nSubmitted: <t:${Math.floor(new Date(p.created_at).getTime() / 1000)}:R>`
+          }))
+        );
+
+      if (pending.length > 10) {
+        embed.setFooter({ text: `Showing first 10 items. Visit the admin dashboard for the full list.` });
+      }
+
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+    }
 
     else if (commandName === 'approve-checkin') {
       const subId = interaction.options.getString('id', true);
