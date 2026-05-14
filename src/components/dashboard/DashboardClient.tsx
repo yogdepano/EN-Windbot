@@ -221,6 +221,5 @@ export default function DashboardClient({ initialUser }: { initialUser: any }) {
 
       </div>
     </div>
-    </div>
   );
 }
