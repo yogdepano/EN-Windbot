@@ -19,6 +19,7 @@ export default function Navbar() {
         <div className="flex items-center gap-6">
           <Link href="/#rewards" className="text-text-muted hover:text-primary transition-colors hidden md:block">Rewards</Link>
           <Link href="/rules" className="text-text-muted hover:text-primary transition-colors hidden md:block">Rules</Link>
+          <Link href="/leaderboard" className="text-text-muted hover:text-primary transition-colors hidden md:block">Leaderboard</Link>
           
           {user ? (
             <div className="flex items-center gap-4 lg:gap-6">

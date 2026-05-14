@@ -1,6 +1,7 @@
-import { Client, GatewayIntentBits, EmbedBuilder, Interaction, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, EmbedBuilder, Interaction, TextChannel, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { gpService } from '../services/gpService';
+import { aiService } from '../services/aiService';
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
@@ -32,16 +33,57 @@ client.once('ready', () => {
 });
 
 client.on('interactionCreate', async (interaction: Interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  const { commandName, user } = interaction;
+  const { user } = interaction;
   
   let profile;
   try {
     profile = await getProfile(user.id);
   } catch (error: any) {
-    return interaction.reply({ content: error.message, ephemeral: true });
+    if (interaction.isChatInputCommand()) {
+      return interaction.reply({ content: error.message, ephemeral: true });
+    }
+    return;
   }
+
+  const { commandName } = (interaction as any);
+
+  // --- BUTTON INTERACTIONS ---
+  if (interaction.isButton()) {
+    const isAdmin = profile.role === 'admin';
+    if (!isAdmin) return interaction.reply({ content: '⛔ Admin only.', ephemeral: true });
+
+    const [action, subId] = interaction.customId.split('_');
+    await interaction.deferUpdate();
+
+    if (action === 'approve') {
+      const { data: sub } = await supabaseAdmin
+        .from('check_ins')
+        .select('*, activities(points)')
+        .eq('id', subId)
+        .single();
+
+      if (sub && sub.status === 'pending') {
+        await supabaseAdmin.rpc('adjust_gp', { p_user_id: sub.user_id, p_amount: sub.activities.points });
+        await supabaseAdmin.from('check_ins').update({ 
+          status: 'approved',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: profile.id
+        }).eq('id', subId);
+        
+        await interaction.followUp({ content: `✅ Approved submission \`${subId.substring(0, 8)}\`.`, ephemeral: true });
+      }
+    } else if (action === 'reject') {
+      await supabaseAdmin.from('check_ins').update({ 
+        status: 'rejected',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: profile.id
+      }).eq('id', subId);
+      await interaction.followUp({ content: `❌ Rejected submission \`${subId.substring(0, 8)}\`.`, ephemeral: true });
+    }
+    return;
+  }
+
+  if (!interaction.isChatInputCommand()) return;
 
   if (profile.status === 'banned' || profile.status === 'suspended') {
     return interaction.reply({ content: `Your account is currently ${profile.status}. Contact an admin.`, ephemeral: true });
@@ -51,21 +93,51 @@ client.on('interactionCreate', async (interaction: Interaction) => {
     // --- MEMBER COMMANDS ---
 
     if (commandName === 'points') {
+      const expLevel = Math.floor(Math.sqrt((profile.total_exp || 0) / 10)) + 1;
+      const themeColor = profile.theme_color || GOLD;
+
       const embed = new EmbedBuilder()
-        .setTitle('🏆 Your Guild Points')
-        .setColor(GOLD)
+        .setTitle(`${profile.title || 'Member'} | ${profile.username}`)
+        .setColor(themeColor as any)
+        .setDescription(profile.catchphrase || '_No catchphrase set_')
         .addFields(
-          { name: 'Current Balance', value: `**${profile.gp_balance} GP**`, inline: true },
-          { name: 'Lifetime Earned', value: `${profile.lifetime_earned} GP`, inline: true }
+          { name: '💰 GP Balance', value: `**${profile.gp_balance}**`, inline: true },
+          { name: '⭐ Lifetime EXP', value: `**${profile.total_exp || 0}** (Lvl ${expLevel})`, inline: true },
+          { name: '🏅 Badges', value: (profile.badges && profile.badges.length > 0) ? profile.badges.join(' ') : 'None yet!' }
         )
         .setThumbnail(user.displayAvatarURL());
       
       await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
+    else if (commandName === 'top') {
+      const { data: topUsers, error: topError } = await supabaseAdmin
+        .from('profiles')
+        .select('username, total_exp, title')
+        .order('total_exp', { ascending: false })
+        .limit(10);
+
+      if (topError) throw topError;
+
+      const embed = new EmbedBuilder()
+        .setTitle('🏆 Every Nation Leaderboard')
+        .setColor(GOLD)
+        .setDescription('Top 10 members by Lifetime EXP')
+        .addFields(
+          (topUsers || []).map((u, i) => ({
+            name: `${i + 1}. ${u.username}`,
+            value: `${u.title || 'Member'} • **${u.total_exp || 0} EXP**`
+          }))
+        );
+
+      await interaction.reply({ embeds: [embed] });
+    }
+
     else if (commandName === 'checkin') {
       const activityName = interaction.options.getString('activity', true);
       const screenshot = interaction.options.getAttachment('screenshot', true);
+
+      await interaction.deferReply({ ephemeral: true });
 
       const weekStart = new Date();
       weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
@@ -83,13 +155,23 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 
       if (error) throw error;
 
+      // --- AI VERIFICATION ---
+      await interaction.editReply({ content: '✅ Proof Submitted. AI is analyzing your screenshot...' });
+      const aiResult = await aiService.verifyScreenshot(screenshot.url, activityName);
+
+      if (aiResult.detected) {
+        await supabaseAdmin.from('check_ins').update({ 
+          admin_notes: `🤖 AI: ${aiResult.reason}` 
+        }).eq('user_id', profile.id).eq('screenshot_url', screenshot.url);
+      }
+
       const embed = new EmbedBuilder()
         .setTitle('✅ Proof Submitted')
-        .setDescription(`Submitted for **${activityName}**. Pending review.`)
+        .setDescription(`Submitted for **${activityName}**. Pending review.\n\n${aiResult.detected ? `🤖 **AI Recommendation**: ${aiResult.meets_requirement ? 'PASS ✅' : 'FAIL ❌'}\n_${aiResult.reason}_` : ''}`)
         .setImage(screenshot.url)
         .setColor(PURPLE);
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.editReply({ content: '', embeds: [embed] });
     }
 
     else if (commandName === 'rewards') {
@@ -161,17 +243,31 @@ client.on('interactionCreate', async (interaction: Interaction) => {
         .setColor(PURPLE)
         .setDescription(`There are currently **${pending.length}** pending submissions.`)
         .addFields(
-          pending.slice(0, 10).map((p: any) => ({
+          pending.slice(0, 5).map((p: any) => ({
             name: `${p.profiles?.username || 'Unknown User'} - ${p.activities?.name || 'Unknown Activity'}`,
-            value: `ID: \`${p.id}\`\n[View Screenshot](${p.screenshot_url})\nSubmitted: <t:${Math.floor(new Date(p.created_at).getTime() / 1000)}:R>`
+            value: `ID: \`${p.id.substring(0, 8)}\`\n[View Screenshot](${p.screenshot_url})\nSubmitted: <t:${Math.floor(new Date(p.created_at).getTime() / 1000)}:R>`
           }))
         );
 
-      if (pending.length > 10) {
-        embed.setFooter({ text: `Showing first 10 items. Visit the admin dashboard for the full list.` });
+      // Create buttons for the first 5 items
+      const rows = pending.slice(0, 5).map((p: any) => {
+        return new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`approve_${p.id}`)
+            .setLabel(`Approve ${p.profiles?.username?.substring(0, 10)}`)
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(`reject_${p.id}`)
+            .setLabel('Reject')
+            .setStyle(ButtonStyle.Danger)
+        );
+      });
+
+      if (pending.length > 5) {
+        embed.setFooter({ text: `Showing first 5 items with buttons. Visit the admin dashboard for the full list.` });
       }
 
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [embed], components: rows as any });
     }
 
     else if (commandName === 'approve-checkin') {

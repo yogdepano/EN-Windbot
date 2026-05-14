@@ -6,7 +6,11 @@ const commands = [
   // Member Commands
   new SlashCommandBuilder()
     .setName('points')
-    .setDescription('Show your current Guild Point balance'),
+    .setDescription('Show your current Guild Point balance and Player Card'),
+
+  new SlashCommandBuilder()
+    .setName('top')
+    .setDescription('Show the top 10 members by lifetime EXP'),
   
   new SlashCommandBuilder()
     .setName('checkin')
