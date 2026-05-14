@@ -16,41 +16,45 @@ export default function Navbar() {
           <span className="heading-serif text-xl font-bold tracking-wider">Every Nation</span>
         </Link>
 
-        <div className="flex items-center gap-6">
-          <Link href="/#rewards" className="text-text-muted hover:text-primary transition-colors hidden md:block">Rewards</Link>
-          <Link href="/rules" className="text-text-muted hover:text-primary transition-colors hidden md:block">Rules</Link>
-          <Link href="/leaderboard" className="text-text-muted hover:text-primary transition-colors hidden md:block">Leaderboard</Link>
+        <div className="flex items-center gap-4 lg:gap-8">
+          <Link href="/" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Home</Link>
           
           {user ? (
-            <div className="flex items-center gap-4 lg:gap-6">
-              <Link href="/dashboard" className="text-sm font-medium text-text-muted hover:text-primary transition-colors hidden md:block">Overview</Link>
-              <Link href="/dashboard/check-in" className="text-sm font-medium text-text-muted hover:text-primary transition-colors hidden md:block">Submit Proof</Link>
-              <Link href="/dashboard/rewards" className="text-sm font-medium text-text-muted hover:text-primary transition-colors hidden md:block">Rewards</Link>
+            <div className="flex items-center gap-4 lg:gap-8">
+              <Link href="/dashboard" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Overview</Link>
+              <Link href="/rules" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Rules</Link>
+              <Link href="/dashboard/check-in" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Submit</Link>
+              <Link href="/dashboard/rewards" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Rewards</Link>
+              <Link href="/leaderboard" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Leaderboard</Link>
               
               {isAdmin && (
                 <>
                   <div className="hidden md:block" style={{ width: '1px', height: '16px', backgroundColor: 'rgba(255,255,255,0.2)' }} />
-                  <Link href="/admin" className="text-sm font-bold text-secondary hover:text-white transition-colors hidden md:block">Admin</Link>
-                  <Link href="/admin/queue" className="text-sm font-bold text-secondary hover:text-white transition-colors hidden md:block">Queue</Link>
+                  <Link href="/admin" className="text-sm font-bold text-secondary hover:text-white transition-colors hidden md:block uppercase tracking-widest">Admin</Link>
                 </>
               )}
 
               <button 
                 onClick={() => signOut()}
-                className="btn-secondary flex items-center gap-2 py-1.5 px-3 text-xs md:text-sm md:ml-4"
+                className="btn-secondary flex items-center gap-2 py-1.5 px-4 text-xs md:text-sm"
                 title="Logout"
               >
-                <LogOut size={16} />
-                <span className="hidden md:inline">Logout</span>
+                <LogOut size={16} className="text-secondary" />
+                <span className="font-bold uppercase tracking-widest hidden md:inline">Logout</span>
               </button>
             </div>
           ) : (
-            <button 
-              onClick={() => signInWithDiscord()}
-              className="btn-primary py-2 px-6 text-sm"
-            >
-              Login with Discord
-            </button>
+            <div className="flex items-center gap-6">
+              <Link href="/rules" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Rules</Link>
+              <Link href="/#rewards" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Rewards</Link>
+              <Link href="/leaderboard" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Leaderboard</Link>
+              <button 
+                onClick={() => signInWithDiscord()}
+                className="btn-primary py-2 px-6 text-sm"
+              >
+                Login
+              </button>
+            </div>
           )}
         </div>
       </div>
