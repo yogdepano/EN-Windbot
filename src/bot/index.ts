@@ -114,6 +114,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
       const { data: topUsers, error: topError } = await supabaseAdmin
         .from('profiles')
         .select('username, total_exp, title')
+        .gt('total_exp', 0)
         .order('total_exp', { ascending: false })
         .limit(10);
 

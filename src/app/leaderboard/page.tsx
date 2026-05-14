@@ -15,6 +15,7 @@ export default function LeaderboardPage() {
       const { data } = await supabase
         .from('profiles')
         .select('*')
+        .gt('total_exp', 0)
         .order('total_exp', { ascending: false })
         .limit(20);
       
