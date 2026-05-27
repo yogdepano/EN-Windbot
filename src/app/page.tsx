@@ -73,8 +73,33 @@ export default function EveryNationLanding() {
         </div>
 
         {/* Right Column: How It Works */}
-        <div className="split-right flex flex-col justify-center px-6 lg:px-16 py-8 bg-surface relative z-10 hide-scrollbar" style={{ backgroundColor: 'rgba(12, 12, 15, 0.5)', backdropFilter: 'blur(20px)' }}>
-          <div className="max-w-md mx-auto md:mx-0 w-full">
+        <div className="split-right flex flex-col justify-center px-6 lg:px-16 py-8 bg-surface relative z-10 hide-scrollbar" style={{ backgroundColor: 'transparent', overflow: 'hidden' }}>
+          {/* Panda Wallpaper */}
+          <img
+            src="/panda-wallpaper.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              zIndex: 0,
+              pointerEvents: 'none',
+            }}
+          />
+          {/* Dark overlay so content stays readable */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(135deg, rgba(5,5,10,0.72) 0%, rgba(10,8,20,0.55) 100%)',
+            backdropFilter: 'blur(1px)',
+            zIndex: 1,
+            pointerEvents: 'none',
+          }} />
+          <div className="max-w-md mx-auto md:mx-0 w-full" style={{ position: 'relative', zIndex: 2 }}>
             <div className="flex items-center gap-3 mb-8">
               <div className="p-2 rounded-lg bg-primary-10 text-primary flex-center">
                 <ShieldCheck size={24} />

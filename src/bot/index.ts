@@ -1,8 +1,8 @@
 import { Client, GatewayIntentBits, EmbedBuilder, Interaction, TextChannel, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { gpService } from '../services/gpService';
-import { aiService } from '../services/aiService';
 import * as dotenv from 'dotenv';
+import cron from 'node-cron';
 dotenv.config({ path: '.env.local' });
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -30,7 +30,175 @@ const PURPLE = 0x8b5cf6;
 
 client.once('ready', () => {
   console.log(`Logged in as ${client.user?.tag}!`);
+  setupReminders();
+  setupAnnouncements();
 });
+
+function setupReminders() {
+  const reminderChannelId = process.env.DISCORD_REMINDER_CHANNEL_ID;
+  if (!reminderChannelId) {
+    console.log('[Scheduler] No DISCORD_REMINDER_CHANNEL_ID configured in env.');
+    return;
+  }
+
+  // Schedule task for 10:00 PM on Saturdays (6) and Sundays (0)
+  // Pattern: "0 22 * * 6,0" (Minute 0, Hour 22, Day of month *, Month *, Day of week 6 & 0)
+  cron.schedule('0 22 * * 6,0', async () => {
+    console.log('[Scheduler] Running weekly check-in reminder job...');
+    try {
+      // 1. Calculate the start date of the current week (Monday)
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
+      const weekStr = weekStart.toISOString().split('T')[0];
+
+      // 2. Fetch all active members from Supabase
+      const { data: activeProfiles, error: profilesError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, discord_id, username')
+        .eq('status', 'active')
+        .eq('role', 'member');
+
+      if (profilesError) throw profilesError;
+      if (!activeProfiles || activeProfiles.length === 0) {
+        console.log('[Scheduler] No active members found to remind.');
+        return;
+      }
+
+      // 3. Fetch all check-ins for the current week
+      const { data: weekCheckins, error: checkinsError } = await supabaseAdmin
+        .from('check_ins')
+        .select('user_id')
+        .eq('week_start_date', weekStr);
+
+      if (checkinsError) throw checkinsError;
+
+      // 4. Determine who has not submitted a check-in this week
+      const checkedInUserIds = new Set((weekCheckins || []).map(c => c.user_id));
+      const missingMembers = (activeProfiles || []).filter(
+        p => p.discord_id && !checkedInUserIds.has(p.id)
+      );
+
+      if (missingMembers.length === 0) {
+        console.log('[Scheduler] All active members have submitted check-ins this week!');
+        return;
+      }
+
+      // 5. Fetch the reminder text channel
+      const channel = await client.channels.fetch(reminderChannelId);
+      if (!channel || !channel.isTextBased()) {
+        console.error(`[Scheduler] Channel with ID ${reminderChannelId} is not a valid text channel.`);
+        return;
+      }
+
+      // 6. Build the reminder message pings and embed
+      const pings = missingMembers.map(m => `<@${m.discord_id}>`).join(' ');
+      
+      const embed = new EmbedBuilder()
+        .setTitle('⏰ Weekly Check-in Reminder')
+        .setDescription(
+          `Friendly reminder to submit your weekly activity proof screenshot!\n\nUse the **\`/checkin\`** command in Discord to claim your GP before the Monday reset.`
+        )
+        .setColor(PURPLE)
+        .addFields({ 
+          name: 'Outstanding Members', 
+          value: missingMembers.map(m => `• ${m.username || 'Unknown User'}`).join('\n') 
+        })
+        .setFooter({ text: 'Every Nation Rewards Tracker' })
+        .setTimestamp();
+
+      // Send pings and embed
+      // Discord messages have a 2000 character limit. If pings string is too long, we can chunk it.
+      if (pings.length > 1900) {
+        const chunks: string[] = [];
+        let currentChunk = '';
+        for (const member of missingMembers) {
+          const ping = `<@${member.discord_id}> `;
+          if (currentChunk.length + ping.length > 1900) {
+            chunks.push(currentChunk.trim());
+            currentChunk = '';
+          }
+          currentChunk += ping;
+        }
+        if (currentChunk) chunks.push(currentChunk.trim());
+
+        for (let i = 0; i < chunks.length; i++) {
+          if (i === 0) {
+            await (channel as TextChannel).send({ content: `Attention: ${chunks[i]}`, embeds: [embed] });
+          } else {
+            await (channel as TextChannel).send({ content: chunks[i] });
+          }
+        }
+      } else {
+        await (channel as TextChannel).send({ content: `Attention: ${pings}`, embeds: [embed] });
+      }
+
+      console.log(`[Scheduler] Sent reminders to ${missingMembers.length} members.`);
+    } catch (err) {
+      console.error('[Scheduler] Error running reminder job:', err);
+    }
+  });
+}
+
+function setupAnnouncements() {
+  const reminderChannelId = process.env.DISCORD_REMINDER_CHANNEL_ID;
+  const announcementRoleId = process.env.DISCORD_ANNOUNCEMENT_ROLE_ID;
+
+  if (!reminderChannelId) {
+    console.log('[Scheduler] No DISCORD_REMINDER_CHANNEL_ID configured in env.');
+    return;
+  }
+  if (!announcementRoleId) {
+    console.log('[Scheduler] No DISCORD_ANNOUNCEMENT_ROLE_ID configured in env.');
+    return;
+  }
+
+  const roleMention = `<@&${announcementRoleId}>`;
+
+  // 1. Breaking Army Announcement (7:20 PM / 19:20 on Saturday & Sunday)
+  cron.schedule('20 19 * * 6,0', async () => {
+    console.log('[Scheduler] Sending Breaking Army announcement...');
+    try {
+      const channel = await client.channels.fetch(reminderChannelId);
+      if (channel && channel.isTextBased()) {
+        await (channel as TextChannel).send({
+          content: `${roleMention} It's 10 minutes before Breaking Army. Get Ready to earn rewards this week.`
+        });
+      }
+    } catch (err) {
+      console.error('[Scheduler] Error sending Breaking Army announcement:', err);
+    }
+  });
+
+  // 2. Guild Party Announcement (7:50 PM / 19:50 on Saturday & Sunday)
+  cron.schedule('50 19 * * 6,0', async () => {
+    console.log('[Scheduler] Sending Guild Party announcement...');
+    try {
+      const channel = await client.channels.fetch(reminderChannelId);
+      if (channel && channel.isTextBased()) {
+        await (channel as TextChannel).send({
+          content: `${roleMention} It's 10 minutes before the Guild Party! Time to take a bath!`
+        });
+      }
+    } catch (err) {
+      console.error('[Scheduler] Error sending Guild Party announcement:', err);
+    }
+  });
+
+  // 3. Guild War Announcement (8:20 PM / 20:20 on Saturday & Sunday)
+  cron.schedule('20 20 * * 6,0', async () => {
+    console.log('[Scheduler] Sending Guild War announcement...');
+    try {
+      const channel = await client.channels.fetch(reminderChannelId);
+      if (channel && channel.isTextBased()) {
+        await (channel as TextChannel).send({
+          content: `${roleMention} It's 10 minutes before Guild War. Time to earn Guild Contribution Points.`
+        });
+      }
+    } catch (err) {
+      console.error('[Scheduler] Error sending Guild War announcement:', err);
+    }
+  });
+}
 
 client.on('interactionCreate', async (interaction: Interaction) => {
   const { user } = interaction;
@@ -131,7 +299,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
           }))
         );
 
-      await interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     else if (commandName === 'checkin') {
@@ -156,23 +324,13 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 
       if (error) throw error;
 
-      // --- AI VERIFICATION ---
-      await interaction.editReply({ content: '✅ Proof Submitted. AI is analyzing your screenshot...' });
-      const aiResult = await aiService.verifyScreenshot(screenshot.url, activityName);
-
-      if (aiResult.detected) {
-        await supabaseAdmin.from('check_ins').update({ 
-          admin_notes: `🤖 AI: ${aiResult.reason}` 
-        }).eq('user_id', profile.id).eq('screenshot_url', screenshot.url);
-      }
-
       const embed = new EmbedBuilder()
         .setTitle('✅ Proof Submitted')
-        .setDescription(`Submitted for **${activityName}**. Pending review.\n\n${aiResult.detected ? `🤖 **AI Recommendation**: ${aiResult.meets_requirement ? 'PASS ✅' : 'FAIL ❌'}\n_${aiResult.reason}_` : ''}`)
+        .setDescription(`Submitted for **${activityName}**. Pending review.`)
         .setImage(screenshot.url)
         .setColor(PURPLE);
 
-      await interaction.editReply({ content: '', embeds: [embed] });
+      await interaction.editReply({ embeds: [embed] });
     }
 
     else if (commandName === 'rewards') {
@@ -183,7 +341,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
         .setColor(GOLD)
         .addFields((rewards || []).map(r => ({ name: `${r.name} (${r.cost} GP)`, value: r.description || 'Premium Reward' })));
 
-      await interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     else if (commandName === 'redeem') {
