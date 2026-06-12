@@ -217,10 +217,121 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 
   // --- BUTTON INTERACTIONS ---
   if (interaction.isButton()) {
+    const [action, subId] = interaction.customId.split('_');
+
+    if (action === 'view-schedule') {
+      await interaction.deferReply({ ephemeral: true });
+
+      const { data: event } = await supabaseAdmin
+        .from('scheduling_events')
+        .select('*')
+        .eq('id', subId)
+        .single();
+
+      if (!event) {
+        return interaction.editReply({ content: 'Event not found.' });
+      }
+
+      const { data: list } = await supabaseAdmin
+        .from('member_availabilities')
+        .select('*')
+        .eq('event_id', subId);
+
+      if (!list || list.length === 0) {
+        return interaction.editReply({ content: 'No availabilities submitted yet.' });
+      }
+
+      const uniqueUsers = new Set(list.map(item => item.discord_id));
+      const totalParticipants = uniqueUsers.size;
+
+      const timeSlots: { [timestamp: number]: Set<string> } = {};
+
+      list.forEach(item => {
+        const start = new Date(item.start_time).getTime();
+        const end = new Date(item.end_time).getTime();
+
+        for (let time = start; time < end; time += 1800000) {
+          if (!timeSlots[time]) {
+            timeSlots[time] = new Set();
+          }
+          timeSlots[time].add(item.discord_id);
+        }
+      });
+
+      const sortedSlots = Object.keys(timeSlots)
+        .map(ts => ({
+          time: parseInt(ts),
+          count: timeSlots[parseInt(ts)].size,
+          users: Array.from(timeSlots[parseInt(ts)])
+        }))
+        .sort((a, b) => b.count - a.count || a.time - b.time);
+
+      if (sortedSlots.length === 0) {
+        return interaction.editReply({ content: 'No overlapping time slots found.' });
+      }
+
+      const durationMs = event.duration_minutes * 60 * 1000;
+      const slotsPerBlock = durationMs / 1800000;
+
+      const blockOptions: { startTime: number; count: number; users: string[] }[] = [];
+
+      for (const slot of sortedSlots) {
+        const startTime = slot.time;
+        
+        let minParticipantsInBlock = totalParticipants + 1;
+        const usersInBlockSet = new Set<string>();
+
+        let validBlock = true;
+        for (let i = 0; i < slotsPerBlock; i++) {
+          const currentSlotTime = startTime + i * 1800000;
+          const slotData = sortedSlots.find(s => s.time === currentSlotTime);
+          if (!slotData) {
+            validBlock = false;
+            break;
+          }
+          minParticipantsInBlock = Math.min(minParticipantsInBlock, slotData.count);
+          slotData.users.forEach(u => usersInBlockSet.add(u));
+        }
+
+        if (validBlock) {
+          blockOptions.push({
+            startTime,
+            count: minParticipantsInBlock,
+            users: Array.from(usersInBlockSet)
+          });
+        }
+      }
+
+      blockOptions.sort((a, b) => b.count - a.count || a.startTime - b.startTime);
+
+      if (blockOptions.length === 0) {
+        return interaction.editReply({ content: 'Could not find any solid block of time matching the duration.' });
+      }
+
+      const topOptions = blockOptions.slice(0, 3);
+
+      const embed = new EmbedBuilder()
+        .setTitle(`📊 Optimal Times: ${event.title}`)
+        .setDescription(`Calculated from **${totalParticipants}** participant(s).`)
+        .setColor(PURPLE);
+
+      topOptions.forEach((option, index) => {
+        const startTimestamp = Math.floor(option.startTime / 1000);
+        const endTimestamp = Math.floor((option.startTime + durationMs) / 1000);
+
+        embed.addFields({
+          name: `Option ${index + 1}: ${option.count}/${totalParticipants} Free`,
+          value: `📅 **<t:${startTimestamp}:F>** to **<t:${endTimestamp}:t>** (<t:${startTimestamp}:R>)`
+        });
+      });
+
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
+
     const isAdmin = profile.role === 'admin';
     if (!isAdmin) return interaction.reply({ content: '⛔ Admin only.', ephemeral: true });
 
-    const [action, subId] = interaction.customId.split('_');
     await interaction.deferUpdate();
 
     if (action === 'approve') {
@@ -371,6 +482,54 @@ client.on('interactionCreate', async (interaction: Interaction) => {
         .addFields((history || []).map(h => ({ name: h.activities.name, value: `${h.status.toUpperCase()} • +${h.activities.points} GP` })));
 
       await interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    else if (commandName === 'schedule') {
+      const title = interaction.options.getString('title', true);
+      const duration = interaction.options.getInteger('duration') || 60;
+
+      await interaction.deferReply();
+
+      const { data: event, error: eventError } = await supabaseAdmin
+        .from('scheduling_events')
+        .insert({
+          title,
+          duration_minutes: duration,
+          creator_id: profile.id,
+          guild_id: interaction.guildId || '',
+          channel_id: interaction.channelId || ''
+        })
+        .select()
+        .single();
+
+      if (eventError || !event) {
+        console.error(eventError);
+        return interaction.editReply({ content: '❌ Failed to create scheduling event.' });
+      }
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const scheduleUrl = `${appUrl}/schedule/${event.id}`;
+
+      const embed = new EmbedBuilder()
+        .setTitle(`📅 Event Scheduling: ${title}`)
+        .setDescription(`Help us find the best time for **${title}** (${duration} mins)!\n\nClick the button below to select your availability.`)
+        .setColor(PURPLE)
+        .addFields({ name: 'Creator', value: `<@${user.id}>`, inline: true })
+        .setFooter({ text: 'Timezone-aware scheduling' })
+        .setTimestamp();
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setLabel('Enter Availability')
+          .setStyle(ButtonStyle.Link)
+          .setURL(scheduleUrl),
+        new ButtonBuilder()
+          .setCustomId(`view-schedule_${event.id}`)
+          .setLabel('View Best Time')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      await interaction.editReply({ embeds: [embed], components: [row] });
     }
 
     // --- ADMIN COMMANDS ---

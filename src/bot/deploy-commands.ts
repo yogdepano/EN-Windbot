@@ -52,6 +52,24 @@ const commands = [
     .setName('history')
     .setDescription('Show your GP earning and redemption history'),
 
+  new SlashCommandBuilder()
+    .setName('schedule')
+    .setDescription('Create a timezone-aware event scheduling poll')
+    .addStringOption(option => 
+      option.setName('title')
+        .setDescription('Title or purpose of the meeting/event')
+        .setRequired(true))
+    .addIntegerOption(option =>
+      option.setName('duration')
+        .setDescription('Duration of the event in minutes (default: 60)')
+        .setRequired(false)
+        .addChoices(
+          { name: '30 Minutes', value: 30 },
+          { name: '60 Minutes', value: 60 },
+          { name: '90 Minutes', value: 90 },
+          { name: '2 Hours', value: 120 },
+        )),
+
   // Admin Commands
   new SlashCommandBuilder()
     .setName('approve-checkin')

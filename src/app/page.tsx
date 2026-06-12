@@ -14,6 +14,26 @@ export default function EveryNationLanding() {
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary-glow rounded-full blur-[100px]"></div>
         </div>
 
+        {/* Panda Wallpaper — centered on screen, behind all content columns */}
+        <img
+          src="/panda-wallpaper.png"
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '55%',
+            maxWidth: '700px',
+            height: 'auto',
+            objectFit: 'contain',
+            zIndex: 0,
+            pointerEvents: 'none',
+            opacity: 0.85,
+          }}
+        />
+
         {/* Left Column: Hero & Info */}
         <div className="split-left flex flex-col justify-center px-6 lg:px-16 py-8 relative z-10 hide-scrollbar">
           <div className="max-w-md animate-fade-in mx-auto md:mx-0">
@@ -74,32 +94,7 @@ export default function EveryNationLanding() {
 
         {/* Right Column: How It Works */}
         <div className="split-right flex flex-col justify-center px-6 lg:px-16 py-8 bg-surface relative z-10 hide-scrollbar" style={{ backgroundColor: 'transparent', overflow: 'hidden' }}>
-          {/* Panda Wallpaper */}
-          <img
-            src="/panda-wallpaper.png"
-            alt=""
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'center',
-              zIndex: 0,
-              pointerEvents: 'none',
-            }}
-          />
-          {/* Dark overlay so content stays readable */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(135deg, rgba(5,5,10,0.72) 0%, rgba(10,8,20,0.55) 100%)',
-            backdropFilter: 'blur(1px)',
-            zIndex: 1,
-            pointerEvents: 'none',
-          }} />
-          <div className="max-w-md mx-auto md:mx-0 w-full" style={{ position: 'relative', zIndex: 2 }}>
+          <div className="max-w-md mx-auto md:mx-0 w-full" style={{ position: 'relative', zIndex: 2, backdropFilter: 'blur(2px)' }}>
             <div className="flex items-center gap-3 mb-8">
               <div className="p-2 rounded-lg bg-primary-10 text-primary flex-center">
                 <ShieldCheck size={24} />
