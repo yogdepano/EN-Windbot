@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 
 export default function ScheduleListPage() {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<any[]>([]);
 
@@ -90,7 +90,7 @@ export default function ScheduleListPage() {
                   <ChevronRight size={14} />
                 </Link>
 
-                {isAdmin && (
+                {(isAdmin || (user && user.id === event.creator_id)) && (
                   <button
                     onClick={() => handleDelete(event.id)}
                     className="p-2.5 rounded-lg border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"
