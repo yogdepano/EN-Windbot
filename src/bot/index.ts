@@ -306,11 +306,10 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 
       topOptions.forEach((option, index) => {
         const startTimestamp = Math.floor(option.startTime / 1000);
-        const endTimestamp = Math.floor((option.startTime + durationMs) / 1000);
 
         embed.addFields({
           name: `Option ${index + 1}: ${option.count}/${totalParticipants} Free`,
-          value: `📅 **<t:${startTimestamp}:F>** to **<t:${endTimestamp}:t>** (<t:${startTimestamp}:R>)`
+          value: `📅 **<t:${startTimestamp}:F>** (<t:${startTimestamp}:R>)`
         });
       });
 
