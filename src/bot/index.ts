@@ -488,7 +488,8 @@ client.on('interactionCreate', async (interaction: Interaction) => {
       const title = interaction.options.getString('title', true);
       const duration = interaction.options.getInteger('duration') || 60;
 
-      await interaction.deferReply();
+      // Ephemeral ack to the creator only
+      await interaction.deferReply({ ephemeral: true });
 
       const { data: event, error: eventError } = await supabaseAdmin
         .from('scheduling_events')
@@ -512,10 +513,13 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 
       const embed = new EmbedBuilder()
         .setTitle(`📅 Event Scheduling: ${title}`)
-        .setDescription(`Help us find the best time for **${title}** (${duration} mins)!\n\nClick the button below to select your availability.`)
+        .setDescription(`Help us find the best time for **${title}** (${duration} mins)!\n\nClick **Enter Availability** to submit your free times. Once everyone has responded, click **View Best Time** to see the optimal slot.`)
         .setColor(PURPLE)
-        .addFields({ name: 'Creator', value: `<@${user.id}>`, inline: true })
-        .setFooter({ text: 'Timezone-aware scheduling' })
+        .addFields(
+          { name: 'Created by', value: `<@${user.id}>`, inline: true },
+          { name: 'Duration', value: `${duration} minutes`, inline: true }
+        )
+        .setFooter({ text: 'Times are shown in your local timezone' })
         .setTimestamp();
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -529,7 +533,14 @@ client.on('interactionCreate', async (interaction: Interaction) => {
           .setStyle(ButtonStyle.Secondary)
       );
 
-      await interaction.editReply({ embeds: [embed], components: [row] });
+      // Ephemeral confirmation to creator
+      await interaction.editReply({ content: `✅ Scheduling event **${title}** created! The poll has been posted in the channel.` });
+
+      // Public message visible to everyone in the channel
+      const channel = interaction.channel;
+      if (channel && channel.isTextBased()) {
+        await (channel as TextChannel).send({ embeds: [embed], components: [row] });
+      }
     }
 
     // --- ADMIN COMMANDS ---
