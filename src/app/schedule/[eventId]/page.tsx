@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Calendar, Clock, Globe, Check, AlertCircle } from 'lucide-react';
-import { DiscordSDK } from '@discord/embedded-app-sdk';
+import { Calendar, Clock, Globe, Check, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface EventData {
   id: string;
@@ -15,30 +14,21 @@ interface EventData {
 export default function SchedulePage() {
   const params = useParams();
   const eventId = params.eventId as string;
-  const router = useRouter();
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [discordUser, setDiscordUser] = useState<{ username: string; id: string } | null>(null);
-  
-  // Custom manual name fallback if not running in Discord iframe
   const [manualName, setManualName] = useState('');
-  
-  // Selected Date and Time Slots
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  // Stores date string (YYYY-MM-DD) -> Array of hour numbers (e.g. 9 for 9:00 AM, 14.5 for 2:30 PM)
   const [availabilities, setAvailabilities] = useState<{ [dateKey: string]: number[] }>({});
   const [timezone, setTimezone] = useState('');
-
-  // Local state for calendar navigation
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   useEffect(() => {
-    // Detect timezone
     setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
-    // Load Event details
     async function loadEvent() {
       const { data, error } = await supabase
         .from('scheduling_events')
@@ -54,145 +44,59 @@ export default function SchedulePage() {
       setLoading(false);
     }
     loadEvent();
-
-    // Setup Discord SDK if inside Discord Client
-    async function setupDiscord() {
-      const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-      if (!clientId) return;
-
-      try {
-        const discordSdk = new DiscordSDK(clientId);
-        await discordSdk.ready();
-        
-        const auth = await discordSdk.commands.authorize({
-          client_id: clientId,
-          response_type: 'code',
-          state: '',
-          prompt: 'none',
-          scope: ['identify'],
-        });
-
-        // Exchange code for token on your backend if needed, or get user info directly
-        // For standard embeds, discordSdk can fetch user profile
-        if (discordSdk.instanceId) {
-          // If in iframe, get user profile
-          const user = discordSdk.ready; // SDK exposes user state or we fall back
-        }
-      } catch (err) {
-        console.log('Not running inside Discord or SDK failed to load, using web preview mode.');
-      }
-    }
-    setupDiscord();
   }, [eventId]);
 
   const handleTimeToggle = (hour: number) => {
     const dateKey = selectedDate.toISOString().split('T')[0];
-    const currentSlots = availabilities[dateKey] || [];
-    
-    let newSlots;
-    if (currentSlots.includes(hour)) {
-      newSlots = currentSlots.filter(h => h !== hour);
-    } else {
-      newSlots = [...currentSlots, hour].sort((a, b) => a - b);
-    }
-
-    setAvailabilities({
-      ...availabilities,
-      [dateKey]: newSlots
-    });
+    const current = availabilities[dateKey] || [];
+    const updated = current.includes(hour)
+      ? current.filter(h => h !== hour)
+      : [...current, hour].sort((a, b) => a - b);
+    setAvailabilities({ ...availabilities, [dateKey]: updated });
   };
 
   const handleSubmit = async () => {
-    const username = discordUser?.username || manualName.trim();
-    const userId = discordUser?.id || `guest_${Math.random().toString(36).substr(2, 9)}`;
+    const username = manualName.trim();
+    if (!username) { alert('Please enter your name.'); return; }
 
-    if (!username) {
-      alert('Please enter your name.');
-      return;
-    }
-
-    // Convert selections to timezone-aware UTC timestamps
-    const rowsToInsert: any[] = [];
+    const rows: any[] = [];
     Object.entries(availabilities).forEach(([dateStr, hours]) => {
       hours.forEach(hour => {
-        // Construct local date time
-        const localDate = new Date(dateStr);
-        const integerHours = Math.floor(hour);
-        const minutes = (hour % 1) * 60;
-        localDate.setHours(integerHours, minutes, 0, 0);
-
-        // Convert to UTC
-        const startTime = localDate.toISOString();
-        const endTime = new Date(localDate.getTime() + 30 * 60 * 1000).toISOString(); // 30-min increments
-
-        rowsToInsert.push({
+        const d = new Date(dateStr);
+        d.setHours(Math.floor(hour), hour % 1 === 0 ? 0 : 30, 0, 0);
+        rows.push({
           event_id: eventId,
-          discord_id: userId,
-          username: username,
-          start_time: startTime,
-          end_time: endTime
+          discord_id: `guest_${username.toLowerCase().replace(/\s+/g, '_')}`,
+          username,
+          start_time: d.toISOString(),
+          end_time: new Date(d.getTime() + 30 * 60 * 1000).toISOString()
         });
       });
     });
 
-    if (rowsToInsert.length === 0) {
-      alert('Please select at least one available time slot.');
-      return;
-    }
+    if (rows.length === 0) { alert('Please select at least one time slot.'); return; }
 
-    setLoading(true);
-    const { error } = await supabase.from('member_availabilities').insert(rowsToInsert);
-    setLoading(false);
+    setSubmitting(true);
+    const { error } = await supabase.from('member_availabilities').insert(rows);
+    setSubmitting(false);
 
     if (error) {
-      alert(`Error saving availabilities: ${error.message}`);
+      alert(`Error: ${error.message}`);
     } else {
-      alert('Your availabilities have been successfully submitted! You can close this screen.');
+      setSubmitted(true);
     }
   };
 
-  // Generate days for the visual month calendar
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
     const totalDays = new Date(year, month + 1, 0).getDate();
-    
-    const days = [];
-    // Pad previous month days
-    for (let i = 0; i < firstDay; i++) {
-      days.push(null);
-    }
-    // Current month days
-    for (let i = 1; i <= totalDays; i++) {
-      days.push(new Date(year, month, i));
-    }
+    const days: (Date | null)[] = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= totalDays; i++) days.push(new Date(year, month, i));
     return days;
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-sans">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-      </div>
-    );
-  }
-
-  if (error || !event) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-sans p-6">
-        <AlertCircle size={48} className="text-red-500 mb-4" />
-        <p className="text-xl font-semibold mb-2">{error || 'Event not found'}</p>
-      </div>
-    );
-  }
-
-  const days = getDaysInMonth(currentMonth);
-  const timeSlots = [];
-  // 30 minute intervals from 8:00 AM to 10:00 PM
-  for (let hour = 8; hour <= 22; hour += 0.5) {
-    timeSlots.push(hour);
-  }
 
   const formatHour = (hour: number) => {
     const h = Math.floor(hour);
@@ -202,144 +106,530 @@ export default function SchedulePage() {
     return `${displayH}:${m} ${ampm}`;
   };
 
+  const prevMonth = () => {
+    const d = new Date(currentMonth);
+    d.setMonth(d.getMonth() - 1);
+    setCurrentMonth(d);
+  };
+
+  const nextMonth = () => {
+    const d = new Date(currentMonth);
+    d.setMonth(d.getMonth() + 1);
+    setCurrentMonth(d);
+  };
+
+  const totalSelectedSlots = Object.values(availabilities).reduce((acc, arr) => acc + arr.length, 0);
+
+  if (loading) {
+    return (
+      <div style={styles.loadingContainer}>
+        <div style={styles.spinner} />
+        <p style={{ color: 'var(--text-muted)', marginTop: '1rem', fontFamily: 'var(--font-body)' }}>Loading event...</p>
+      </div>
+    );
+  }
+
+  if (error || !event) {
+    return (
+      <div style={styles.loadingContainer}>
+        <AlertCircle size={48} color="var(--error)" />
+        <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>{error || 'Event not found'}</p>
+      </div>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <div style={styles.loadingContainer}>
+        <div style={styles.successIcon}>
+          <Check size={40} color="var(--primary)" />
+        </div>
+        <h2 style={{ ...styles.successTitle }}>Availability Submitted!</h2>
+        <p style={{ color: 'var(--text-muted)', textAlign: 'center', maxWidth: 320 }}>
+          Your {totalSelectedSlots} time slot{totalSelectedSlots !== 1 ? 's' : ''} for <strong style={{ color: 'var(--primary)' }}>{event.title}</strong> have been recorded. You can close this window.
+        </p>
+      </div>
+    );
+  }
+
+  const days = getDaysInMonth(currentMonth);
+  const timeSlots: number[] = [];
+  for (let h = 6; h <= 23; h += 0.5) timeSlots.push(h);
+  const selectedDateKey = selectedDate.toISOString().split('T')[0];
+  const selectedSlots = availabilities[selectedDateKey] || [];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans flex items-center justify-center p-4 lg:p-8 bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950">
-      
-      {/* Background Glow */}
-      <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+    <div style={styles.page}>
+      {/* Background glows */}
+      <div style={{ ...styles.glow, top: '10%', left: '15%', background: 'rgba(212,175,55,0.06)' }} />
+      <div style={{ ...styles.glow, bottom: '10%', right: '10%', background: 'rgba(139,92,246,0.08)' }} />
 
-      <div className="w-full max-w-4xl bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 lg:p-8 shadow-2xl relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* Left Column: Calendar Date Selector */}
-        <div>
-          <div className="mb-6">
-            <span className="text-xs uppercase tracking-wider text-purple-400 font-semibold">Scheduler</span>
-            <h1 className="text-2xl font-bold mt-1 text-white">{event.title}</h1>
-            <p className="text-sm text-slate-400 mt-1 flex items-center gap-2">
-              <Clock size={14} /> {event.duration_minutes} Minutes Duration
-            </p>
-          </div>
+      <div style={styles.card}>
 
-          {/* User Profile / Custom Name Input */}
-          {!discordUser && (
-            <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/5">
-              <label className="block text-xs text-slate-400 uppercase tracking-wider mb-2 font-semibold">Your Name</label>
-              <input
-                type="text"
-                placeholder="Enter your name"
-                value={manualName}
-                onChange={(e) => setManualName(e.target.value)}
-                className="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-          )}
-
-          {/* Month Selector header */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-300">
-              {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-            </h2>
-            <div className="flex gap-1">
-              <button 
-                onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-              >
-                &larr;
-              </button>
-              <button 
-                onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-              >
-                &rarr;
-              </button>
-            </div>
-          </div>
-
-          {/* Weekday labels */}
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px] uppercase font-semibold text-slate-400 mb-2">
-            <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
-          </div>
-
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1.5">
-            {days.map((day, idx) => {
-              if (!day) return <div key={`pad-${idx}`} className="h-10"></div>;
-              
-              const isSelected = selectedDate.toDateString() === day.toDateString();
-              const dateKey = day.toISOString().split('T')[0];
-              const hasSlots = (availabilities[dateKey] || []).length > 0;
-
-              return (
-                <button
-                  key={day.toISOString()}
-                  onClick={() => setSelectedDate(day)}
-                  className={`h-10 rounded-xl text-xs flex flex-col items-center justify-center relative transition-all ${
-                    isSelected 
-                      ? 'bg-purple-600 text-white font-semibold' 
-                      : 'bg-white/5 hover:bg-white/10 text-slate-300'
-                  }`}
-                >
-                  {day.getDate()}
-                  {hasSlots && !isSelected && (
-                    <span className="absolute bottom-1 w-1 h-1 bg-purple-400 rounded-full"></span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 flex items-center gap-2 text-xs text-slate-400 bg-white/5 p-3 rounded-xl border border-white/5">
-            <Globe size={14} className="text-purple-400" />
-            <span>Showing slots in your local timezone: <strong>{timezone}</strong></span>
+        {/* ── Header ── */}
+        <div style={styles.header}>
+          <span style={styles.badge}>SCHEDULER</span>
+          <h1 style={styles.title}>{event.title}</h1>
+          <div style={styles.metaRow}>
+            <Clock size={14} color="var(--text-muted)" />
+            <span style={styles.metaText}>{event.duration_minutes} minute session</span>
+            <span style={styles.dot} />
+            <Globe size={14} color="var(--text-muted)" />
+            <span style={styles.metaText}>{timezone}</span>
           </div>
         </div>
 
-        {/* Right Column: Time Slot Selector */}
-        <div className="flex flex-col h-full border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 md:pl-8">
-          <div className="mb-4">
-            <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-              <Calendar size={16} className="text-purple-400" />
-              {selectedDate.toLocaleDateString('default', { weekday: 'long', month: 'short', day: 'numeric' })}
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">Select all times you are available to join.</p>
+        <div style={styles.divider} />
+
+        {/* ── Name Input ── */}
+        <div style={styles.section}>
+          <label style={styles.label}>YOUR NAME</label>
+          <input
+            type="text"
+            placeholder="Enter your in-game name or Discord name"
+            value={manualName}
+            onChange={e => setManualName(e.target.value)}
+            style={styles.input}
+            onFocus={e => { (e.target as HTMLInputElement).style.borderColor = 'var(--primary)'; (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px var(--primary-10)'; }}
+            onBlur={e => { (e.target as HTMLInputElement).style.borderColor = 'var(--border)'; (e.target as HTMLInputElement).style.boxShadow = 'none'; }}
+          />
+        </div>
+
+        <div style={styles.divider} />
+
+        {/* ── Two columns: Calendar | Time Slots ── */}
+        <div style={styles.columns}>
+
+          {/* LEFT: Month calendar */}
+          <div style={styles.calendarCol}>
+            {/* Month nav */}
+            <div style={styles.monthNav}>
+              <button onClick={prevMonth} style={styles.navBtn}>
+                <ChevronLeft size={16} />
+              </button>
+              <span style={styles.monthLabel}>
+                {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+              </span>
+              <button onClick={nextMonth} style={styles.navBtn}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+
+            {/* Weekday headers */}
+            <div style={styles.weekRow}>
+              {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+                <div key={d} style={styles.weekLabel}>{d}</div>
+              ))}
+            </div>
+
+            {/* Days grid */}
+            <div style={styles.daysGrid}>
+              {days.map((day, idx) => {
+                if (!day) return <div key={`pad-${idx}`} />;
+                const isToday = day.toDateString() === new Date().toDateString();
+                const isSelected = day.toDateString() === selectedDate.toDateString();
+                const dk = day.toISOString().split('T')[0];
+                const hasDot = (availabilities[dk] || []).length > 0;
+
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => setSelectedDate(day)}
+                    style={{
+                      ...styles.dayBtn,
+                      ...(isSelected ? styles.daySelected : isToday ? styles.dayToday : {})
+                    }}
+                    onMouseEnter={e => {
+                      if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-hover)';
+                    }}
+                    onMouseLeave={e => {
+                      if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-alt)';
+                    }}
+                  >
+                    {day.getDate()}
+                    {hasDot && !isSelected && <span style={styles.dotIndicator} />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Time Slots Scrolling Grid */}
-          <div className="grid grid-cols-2 gap-2 max-h-[320px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-            {timeSlots.map(hour => {
-              const dateKey = selectedDate.toISOString().split('T')[0];
-              const isSelected = (availabilities[dateKey] || []).includes(hour);
+          {/* Vertical divider */}
+          <div style={styles.colDivider} />
 
-              return (
-                <button
-                  key={hour}
-                  onClick={() => handleTimeToggle(hour)}
-                  className={`p-2.5 rounded-xl text-xs flex items-center justify-between border transition-all ${
-                    isSelected 
-                      ? 'bg-purple-600/20 border-purple-500 text-white font-semibold' 
-                      : 'bg-slate-950/40 border-white/5 text-slate-400 hover:border-white/10 hover:text-white'
-                  }`}
-                >
-                  {formatHour(hour)}
-                  {isSelected && <Check size={14} className="text-purple-400" />}
-                </button>
-              );
-            })}
-          </div>
+          {/* RIGHT: Time slots */}
+          <div style={styles.timeCol}>
+            <div style={styles.timeDateHeader}>
+              <Calendar size={15} color="var(--primary)" />
+              <span style={styles.timeDateLabel}>
+                {selectedDate.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </span>
+            </div>
+            <p style={styles.timeSubLabel}>Click slots to mark your free windows.</p>
 
-          {/* Submit Button */}
-          <div className="mt-auto pt-6">
-            <button
-              onClick={handleSubmit}
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-sm font-semibold py-3 px-4 rounded-xl shadow-lg shadow-purple-950/20 transition-all active:scale-[0.98]"
-            >
-              Confirm Availability
-            </button>
+            <div style={styles.slotsGrid}>
+              {timeSlots.map(hour => {
+                const isOn = selectedSlots.includes(hour);
+                return (
+                  <button
+                    key={hour}
+                    onClick={() => handleTimeToggle(hour)}
+                    style={{
+                      ...styles.slotBtn,
+                      ...(isOn ? styles.slotOn : {})
+                    }}
+                    onMouseEnter={e => {
+                      if (!isOn) (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(212,175,55,0.3)';
+                    }}
+                    onMouseLeave={e => {
+                      if (!isOn) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
+                    }}
+                  >
+                    <span>{formatHour(hour)}</span>
+                    {isOn && <Check size={12} color="var(--primary)" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        </div>
+
+        <div style={styles.divider} />
+
+        {/* ── Footer ── */}
+        <div style={styles.footer}>
+          <span style={styles.slotCount}>
+            {totalSelectedSlots} slot{totalSelectedSlots !== 1 ? 's' : ''} selected across {Object.keys(availabilities).filter(k => availabilities[k].length > 0).length} day{Object.keys(availabilities).filter(k => availabilities[k].length > 0).length !== 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            style={{ ...styles.submitBtn, ...(submitting ? { opacity: 0.6 } : {}) }}
+            onMouseEnter={e => {
+              if (!submitting) (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 30px var(--primary-glow)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 15px var(--primary-glow)';
+            }}
+          >
+            {submitting ? 'Submitting...' : 'Confirm Availability'}
+          </button>
         </div>
 
       </div>
     </div>
   );
 }
+
+const styles: { [key: string]: React.CSSProperties } = {
+  page: {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '2rem 1rem',
+    background: 'var(--background)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  glow: {
+    position: 'absolute',
+    width: 500,
+    height: 500,
+    borderRadius: '50%',
+    filter: 'blur(120px)',
+    pointerEvents: 'none',
+    zIndex: 0,
+  },
+  card: {
+    position: 'relative',
+    zIndex: 1,
+    width: '100%',
+    maxWidth: 860,
+    background: 'var(--glass-bg)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 20,
+    overflow: 'hidden',
+    boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
+  },
+  header: {
+    padding: '2rem 2rem 1.5rem',
+  },
+  badge: {
+    fontSize: '0.65rem',
+    fontFamily: 'var(--font-subheading)',
+    fontWeight: 700,
+    letterSpacing: '0.15em',
+    color: 'var(--primary)',
+    textTransform: 'uppercase' as const,
+    opacity: 0.8,
+  },
+  title: {
+    fontFamily: 'var(--font-heading)',
+    fontSize: '1.75rem',
+    color: 'var(--primary)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+    margin: '0.4rem 0 0.6rem',
+  },
+  metaRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    flexWrap: 'wrap' as const,
+  },
+  metaText: {
+    fontSize: '0.8rem',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-body)',
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: '50%',
+    background: 'var(--text-muted)',
+    opacity: 0.5,
+  },
+  divider: {
+    height: 1,
+    background: 'var(--border)',
+    margin: '0',
+  },
+  section: {
+    padding: '1.25rem 2rem',
+  },
+  label: {
+    display: 'block',
+    fontSize: '0.65rem',
+    fontFamily: 'var(--font-subheading)',
+    fontWeight: 700,
+    letterSpacing: '0.12em',
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase' as const,
+    marginBottom: '0.5rem',
+  },
+  input: {
+    width: '100%',
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    padding: '0.65rem 1rem',
+    color: 'var(--text-main)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.9rem',
+    outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  },
+  columns: {
+    display: 'flex',
+    flexDirection: 'row' as const,
+    gap: 0,
+  },
+  calendarCol: {
+    flex: '0 0 auto',
+    width: 320,
+    padding: '1.5rem 2rem',
+  },
+  colDivider: {
+    width: 1,
+    background: 'var(--border)',
+    alignSelf: 'stretch',
+  },
+  timeCol: {
+    flex: 1,
+    padding: '1.5rem 2rem',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    minWidth: 0,
+  },
+  monthNav: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '1rem',
+  },
+  monthLabel: {
+    fontFamily: 'var(--font-subheading)',
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    color: 'var(--text-main)',
+  },
+  navBtn: {
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 6,
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0.3rem',
+    transition: 'all 0.2s',
+  },
+  weekRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    textAlign: 'center' as const,
+    marginBottom: '0.5rem',
+  },
+  weekLabel: {
+    fontSize: '0.65rem',
+    fontFamily: 'var(--font-subheading)',
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase' as const,
+    padding: '0.2rem 0',
+  },
+  daysGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: 4,
+  },
+  dayBtn: {
+    aspectRatio: '1',
+    background: 'var(--surface-alt)',
+    border: '1px solid transparent',
+    borderRadius: 8,
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    fontSize: '0.8rem',
+    fontFamily: 'var(--font-body)',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative' as const,
+    transition: 'all 0.15s',
+  },
+  daySelected: {
+    background: 'var(--primary-10)',
+    border: '1px solid var(--primary)',
+    color: 'var(--primary)',
+    fontWeight: 700,
+  },
+  dayToday: {
+    border: '1px solid rgba(212,175,55,0.3)',
+    color: 'var(--text-main)',
+  },
+  dotIndicator: {
+    position: 'absolute' as const,
+    bottom: 4,
+    width: 4,
+    height: 4,
+    borderRadius: '50%',
+    background: 'var(--primary)',
+    opacity: 0.8,
+  },
+  timeDateHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    marginBottom: '0.25rem',
+  },
+  timeDateLabel: {
+    fontFamily: 'var(--font-subheading)',
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    color: 'var(--text-main)',
+  },
+  timeSubLabel: {
+    fontSize: '0.75rem',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-body)',
+    marginBottom: '1rem',
+  },
+  slotsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: 6,
+    maxHeight: 300,
+    overflowY: 'auto' as const,
+    paddingRight: 4,
+  },
+  slotBtn: {
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0.5rem 0.75rem',
+    fontSize: '0.8rem',
+    fontFamily: 'var(--font-body)',
+    transition: 'border-color 0.15s',
+  },
+  slotOn: {
+    background: 'var(--primary-10)',
+    border: '1px solid var(--primary)',
+    color: 'var(--primary)',
+    fontWeight: 600,
+  },
+  footer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '1.25rem 2rem',
+    flexWrap: 'wrap' as const,
+    gap: '1rem',
+  },
+  slotCount: {
+    fontSize: '0.8rem',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-body)',
+  },
+  submitBtn: {
+    background: 'linear-gradient(135deg, #d4af37 0%, #b8962e 100%)',
+    color: '#000',
+    border: 'none',
+    borderRadius: 8,
+    padding: '0.7rem 1.75rem',
+    fontFamily: 'var(--font-subheading)',
+    fontWeight: 700,
+    fontSize: '0.85rem',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.1em',
+    cursor: 'pointer',
+    boxShadow: '0 0 15px var(--primary-glow)',
+    transition: 'box-shadow 0.2s, opacity 0.2s',
+  },
+  loadingContainer: {
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'var(--background)',
+    gap: '0.75rem',
+  },
+  spinner: {
+    width: 44,
+    height: 44,
+    borderRadius: '50%',
+    border: '3px solid var(--surface-hover)',
+    borderTopColor: 'var(--primary)',
+    animation: 'spin 0.8s linear infinite',
+  },
+  successIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: '50%',
+    background: 'var(--primary-10)',
+    border: '1px solid var(--primary)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '1rem',
+  },
+  successTitle: {
+    fontFamily: 'var(--font-heading)',
+    color: 'var(--primary)',
+    fontSize: '1.5rem',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+  },
+};
