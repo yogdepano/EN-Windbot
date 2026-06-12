@@ -31,3 +31,17 @@ CREATE POLICY "Everyone can view member availabilities" ON member_availabilities
 -- Allow users to create events & availabilities
 CREATE POLICY "Authenticated users can create scheduling events" ON scheduling_events FOR INSERT WITH CHECK (true);
 CREATE POLICY "Everyone can insert member availabilities" ON member_availabilities FOR INSERT WITH CHECK (true);
+
+-- Allow admins and creators to delete scheduling events
+CREATE POLICY "Admins can delete scheduling events" ON scheduling_events FOR DELETE USING (
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+  )
+);
+CREATE POLICY "Creators can delete own scheduling events" ON scheduling_events FOR DELETE USING (
+  auth.uid() = creator_id
+);
+
+-- Allow everyone to delete member availabilities (to support updating/clearing guest slots)
+CREATE POLICY "Everyone can delete member availabilities" ON member_availabilities FOR DELETE USING (true);
