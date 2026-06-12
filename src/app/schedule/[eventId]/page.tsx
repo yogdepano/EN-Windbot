@@ -5,10 +5,23 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Calendar, Clock, Globe, Check, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
+const getLocalDateString = (d: Date) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 interface EventData {
   id: string;
   title: string;
   duration_minutes: number;
+}
+
+interface DayAvailability {
+  enabled: boolean;
+  startTime: number;
+  endTime: number;
 }
 
 export default function SchedulePage() {
@@ -22,12 +35,17 @@ export default function SchedulePage() {
   const [error, setError] = useState<string | null>(null);
   const [manualName, setManualName] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [availabilities, setAvailabilities] = useState<{ [dateKey: string]: number[] }>({});
+  const [availabilities, setAvailabilities] = useState<{ [dateKey: string]: DayAvailability }>({});
   const [timezone, setTimezone] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   useEffect(() => {
     setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+    const savedName = localStorage.getItem('scheduler_username');
+    if (savedName) {
+      setManualName(savedName);
+    }
 
     async function loadEvent() {
       const { data, error } = await supabase
@@ -46,13 +64,105 @@ export default function SchedulePage() {
     loadEvent();
   }, [eventId]);
 
-  const handleTimeToggle = (hour: number) => {
-    const dateKey = selectedDate.toISOString().split('T')[0];
-    const current = availabilities[dateKey] || [];
-    const updated = current.includes(hour)
-      ? current.filter(h => h !== hour)
-      : [...current, hour].sort((a, b) => a - b);
-    setAvailabilities({ ...availabilities, [dateKey]: updated });
+  // Automatically fetch existing availability when username is set/typed
+  useEffect(() => {
+    const username = manualName.trim();
+    if (!username || !eventId) {
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      const discordId = `guest_${username.toLowerCase().replace(/\s+/g, '_')}`;
+      const { data, error } = await supabase
+        .from('member_availabilities')
+        .select('start_time, end_time')
+        .eq('event_id', eventId)
+        .eq('discord_id', discordId);
+
+      if (error) {
+        console.error('Error fetching existing availability:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const loadedAvailabilities: { [dateKey: string]: DayAvailability } = {};
+        data.forEach(row => {
+          const dStart = new Date(row.start_time);
+          const dEnd = new Date(row.end_time);
+          const dateKey = getLocalDateString(dStart);
+          
+          const startHour = dStart.getHours() + (dStart.getMinutes() === 30 ? 0.5 : 0);
+          const endHour = dEnd.getHours() + (dEnd.getMinutes() === 30 ? 0.5 : 0);
+
+          if (loadedAvailabilities[dateKey]) {
+            loadedAvailabilities[dateKey].startTime = Math.min(loadedAvailabilities[dateKey].startTime, startHour);
+            loadedAvailabilities[dateKey].endTime = Math.max(loadedAvailabilities[dateKey].endTime, endHour);
+          } else {
+            loadedAvailabilities[dateKey] = {
+              enabled: true,
+              startTime: startHour,
+              endTime: endHour
+            };
+          }
+        });
+
+        setAvailabilities(loadedAvailabilities);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [manualName, eventId]);
+
+  const handleStartChange = (newStart: number) => {
+    const dk = getLocalDateString(selectedDate);
+    const current = availabilities[dk] || { enabled: true, startTime: 19, endTime: 22 };
+    let newEnd = current.endTime;
+    if (newEnd <= newStart) {
+      newEnd = Math.min(newStart + 1, 24);
+    }
+    setAvailabilities({
+      ...availabilities,
+      [dk]: {
+        ...current,
+        startTime: newStart,
+        endTime: newEnd
+      }
+    });
+  };
+
+  const handleEndChange = (newEnd: number) => {
+    const dk = getLocalDateString(selectedDate);
+    const current = availabilities[dk] || { enabled: true, startTime: 19, endTime: 22 };
+    setAvailabilities({
+      ...availabilities,
+      [dk]: {
+        ...current,
+        endTime: newEnd
+      }
+    });
+  };
+
+  const handleEnabledToggle = () => {
+    const dk = getLocalDateString(selectedDate);
+    const current = availabilities[dk];
+    if (current?.enabled) {
+      setAvailabilities({
+        ...availabilities,
+        [dk]: {
+          ...current,
+          enabled: false
+        }
+      });
+    } else {
+      setAvailabilities({
+        ...availabilities,
+        [dk]: {
+          enabled: true,
+          startTime: current?.startTime || 19,
+          endTime: current?.endTime || 22
+        }
+      });
+    }
   };
 
   const handleSubmit = async () => {
@@ -60,29 +170,73 @@ export default function SchedulePage() {
     if (!username) { alert('Please enter your name.'); return; }
 
     const rows: any[] = [];
-    Object.entries(availabilities).forEach(([dateStr, hours]) => {
-      hours.forEach(hour => {
-        const d = new Date(dateStr);
-        d.setHours(Math.floor(hour), hour % 1 === 0 ? 0 : 30, 0, 0);
-        rows.push({
-          event_id: eventId,
-          discord_id: `guest_${username.toLowerCase().replace(/\s+/g, '_')}`,
-          username,
-          start_time: d.toISOString(),
-          end_time: new Date(d.getTime() + 30 * 60 * 1000).toISOString()
-        });
+    Object.entries(availabilities).forEach(([dateStr, av]) => {
+      if (!av.enabled) return;
+
+      const [year, month, day] = dateStr.split('-').map(Number);
+      
+      const dStart = new Date(year, month - 1, day);
+      dStart.setHours(Math.floor(av.startTime), av.startTime % 1 === 0 ? 0 : 30, 0, 0);
+
+      const dEnd = new Date(year, month - 1, day);
+      dEnd.setHours(Math.floor(av.endTime), av.endTime % 1 === 0 ? 0 : 30, 0, 0);
+
+      rows.push({
+        event_id: eventId,
+        discord_id: `guest_${username.toLowerCase().replace(/\s+/g, '_')}`,
+        username,
+        start_time: dStart.toISOString(),
+        end_time: dEnd.toISOString()
       });
     });
 
-    if (rows.length === 0) { alert('Please select at least one time slot.'); return; }
+    const discordId = `guest_${username.toLowerCase().replace(/\s+/g, '_')}`;
+
+    if (rows.length === 0) {
+      const confirmClear = confirm("You have no time slots selected. Do you want to clear your previously submitted availability?");
+      if (!confirmClear) return;
+
+      setSubmitting(true);
+      const { error: deleteError } = await supabase
+        .from('member_availabilities')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('discord_id', discordId);
+
+      setSubmitting(false);
+
+      if (deleteError) {
+        alert(`Error clearing availability: ${deleteError.message}`);
+      } else {
+        localStorage.setItem('scheduler_username', username);
+        setSubmitted(true);
+      }
+      return;
+    }
 
     setSubmitting(true);
-    const { error } = await supabase.from('member_availabilities').insert(rows);
+
+    // 1. Delete previous slots
+    const { error: deleteError } = await supabase
+      .from('member_availabilities')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('discord_id', discordId);
+
+    if (deleteError) {
+      setSubmitting(false);
+      alert(`Error updating availability: ${deleteError.message}`);
+      return;
+    }
+
+    // 2. Insert new slots
+    const { error: insertError } = await supabase.from('member_availabilities').insert(rows);
     setSubmitting(false);
 
-    if (error) {
-      alert(`Error: ${error.message}`);
+    if (insertError) {
+      alert(`Error saving availability: ${insertError.message}`);
     } else {
+      localStorage.setItem('scheduler_username', username);
       setSubmitted(true);
     }
   };
@@ -99,6 +253,7 @@ export default function SchedulePage() {
   };
 
   const formatHour = (hour: number) => {
+    if (hour === 24) return '12:00 AM (Next Day)';
     const h = Math.floor(hour);
     const m = hour % 1 === 0 ? '00' : '30';
     const ampm = h >= 12 ? 'PM' : 'AM';
@@ -118,7 +273,9 @@ export default function SchedulePage() {
     setCurrentMonth(d);
   };
 
-  const totalSelectedSlots = Object.values(availabilities).reduce((acc, arr) => acc + arr.length, 0);
+  const totalSelectedSlots = Object.values(availabilities)
+    .filter(a => a.enabled)
+    .reduce((acc, a) => acc + (a.endTime - a.startTime) * 2, 0);
 
   if (loading) {
     return (
@@ -144,19 +301,30 @@ export default function SchedulePage() {
         <div style={styles.successIcon}>
           <Check size={40} color="var(--primary)" />
         </div>
-        <h2 style={{ ...styles.successTitle }}>Availability Submitted!</h2>
+        <h2 style={{ ...styles.successTitle }}>
+          {totalSelectedSlots === 0 ? 'Availability Cleared!' : 'Availability Submitted!'}
+        </h2>
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', maxWidth: 320 }}>
-          Your {totalSelectedSlots} time slot{totalSelectedSlots !== 1 ? 's' : ''} for <strong style={{ color: 'var(--primary)' }}>{event.title}</strong> have been recorded. You can close this window.
+          {totalSelectedSlots === 0 ? (
+            <>Your availability for <strong style={{ color: 'var(--primary)' }}>{event.title}</strong> has been cleared. You can close this window.</>
+          ) : (
+            <>Your availability for <strong style={{ color: 'var(--primary)' }}>{event.title}</strong> has been recorded. You can close this window.</>
+          )}
         </p>
       </div>
     );
   }
 
   const days = getDaysInMonth(currentMonth);
-  const timeSlots: number[] = [];
-  for (let h = 6; h <= 23; h += 0.5) timeSlots.push(h);
-  const selectedDateKey = selectedDate.toISOString().split('T')[0];
-  const selectedSlots = availabilities[selectedDateKey] || [];
+  const selectedDateKey = getLocalDateString(selectedDate);
+  const currentAvail = availabilities[selectedDateKey];
+
+  const startHourOptions: number[] = [];
+  for (let h = 6; h <= 23.5; h += 0.5) startHourOptions.push(h);
+
+  const endHourOptions: number[] = [];
+  const currentStart = currentAvail?.startTime ?? 19;
+  for (let h = currentStart + 0.5; h <= 24; h += 0.5) endHourOptions.push(h);
 
   return (
     <div style={styles.page}>
@@ -197,7 +365,7 @@ export default function SchedulePage() {
 
         <div style={styles.divider} />
 
-        {/* ── Two columns: Calendar | Time Slots ── */}
+        {/* ── Two columns: Calendar | Start/End selection ── */}
         <div style={styles.columns}>
 
           {/* LEFT: Month calendar */}
@@ -228,8 +396,8 @@ export default function SchedulePage() {
                 if (!day) return <div key={`pad-${idx}`} />;
                 const isToday = day.toDateString() === new Date().toDateString();
                 const isSelected = day.toDateString() === selectedDate.toDateString();
-                const dk = day.toISOString().split('T')[0];
-                const hasDot = (availabilities[dk] || []).length > 0;
+                const dk = getLocalDateString(day);
+                const hasDot = availabilities[dk]?.enabled;
 
                 return (
                   <button
@@ -257,7 +425,7 @@ export default function SchedulePage() {
           {/* Vertical divider */}
           <div style={styles.colDivider} />
 
-          {/* RIGHT: Time slots */}
+          {/* RIGHT: Start/End selection */}
           <div style={styles.timeCol}>
             <div style={styles.timeDateHeader}>
               <Calendar size={15} color="var(--primary)" />
@@ -265,32 +433,74 @@ export default function SchedulePage() {
                 {selectedDate.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' })}
               </span>
             </div>
-            <p style={styles.timeSubLabel}>Click slots to mark your free windows.</p>
+            <p style={styles.timeSubLabel}>Set the start and end times of your availability block.</p>
 
-            <div style={styles.slotsGrid}>
-              {timeSlots.map(hour => {
-                const isOn = selectedSlots.includes(hour);
-                return (
-                  <button
-                    key={hour}
-                    onClick={() => handleTimeToggle(hour)}
-                    style={{
-                      ...styles.slotBtn,
-                      ...(isOn ? styles.slotOn : {})
-                    }}
-                    onMouseEnter={e => {
-                      if (!isOn) (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(212,175,55,0.3)';
-                    }}
-                    onMouseLeave={e => {
-                      if (!isOn) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
-                    }}
+            {/* Toggle Button */}
+            <button
+              onClick={handleEnabledToggle}
+              style={{
+                ...styles.availToggleBtn,
+                ...(currentAvail?.enabled ? styles.availToggleBtnActive : {})
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                  ...styles.checkbox,
+                  ...(currentAvail?.enabled ? styles.checkboxChecked : {})
+                }}>
+                  {currentAvail?.enabled && <Check size={14} color="#000" />}
+                </div>
+                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                  {currentAvail?.enabled ? 'I am available on this day' : 'I am NOT available on this day'}
+                </span>
+              </div>
+            </button>
+
+            {/* Selectors */}
+            {currentAvail?.enabled ? (
+              <div style={styles.selectorsContainer}>
+                <div style={styles.selectorGroup}>
+                  <label style={styles.selectorLabel}>START TIME</label>
+                  <select
+                    value={currentAvail.startTime}
+                    onChange={e => handleStartChange(parseFloat(e.target.value))}
+                    style={styles.selectInput}
                   >
-                    <span>{formatHour(hour)}</span>
-                    {isOn && <Check size={12} color="var(--primary)" />}
-                  </button>
-                );
-              })}
-            </div>
+                    {startHourOptions.map(h => (
+                      <option key={h} value={h} style={styles.selectOption}>
+                        {formatHour(h)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={styles.selectorGroup}>
+                  <label style={styles.selectorLabel}>END TIME</label>
+                  <select
+                    value={currentAvail.endTime}
+                    onChange={e => handleEndChange(parseFloat(e.target.value))}
+                    style={styles.selectInput}
+                  >
+                    {endHourOptions.map(h => (
+                      <option key={h} value={h} style={styles.selectOption}>
+                        {formatHour(h)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={styles.durationPreview}>
+                  <Clock size={14} color="var(--primary)" />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Selected: <strong>{currentAvail.endTime - currentAvail.startTime} hours</strong> ({formatHour(currentAvail.startTime)} to {formatHour(currentAvail.endTime)})
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, border: '1px dashed var(--border)', borderRadius: 12, padding: '2rem' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>Toggle "I am available on this day" to configure times.</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -299,7 +509,7 @@ export default function SchedulePage() {
         {/* ── Footer ── */}
         <div style={styles.footer}>
           <span style={styles.slotCount}>
-            {totalSelectedSlots} slot{totalSelectedSlots !== 1 ? 's' : ''} selected across {Object.keys(availabilities).filter(k => availabilities[k].length > 0).length} day{Object.keys(availabilities).filter(k => availabilities[k].length > 0).length !== 1 ? 's' : ''}
+            {Object.keys(availabilities).filter(k => availabilities[k].enabled).length} day(s) selected
           </span>
           <button
             onClick={handleSubmit}
@@ -541,33 +751,87 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontFamily: 'var(--font-body)',
     marginBottom: '1rem',
   },
-  slotsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: 6,
-    maxHeight: 300,
-    overflowY: 'auto' as const,
-    paddingRight: 4,
+  availToggleBtn: {
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 10,
+    color: 'var(--text-muted)',
+    padding: '1rem',
+    cursor: 'pointer',
+    textAlign: 'left' as const,
+    display: 'flex',
+    alignItems: 'center',
+    width: '100%',
+    transition: 'all 0.15s',
+    marginBottom: '1.5rem',
+    outline: 'none',
   },
-  slotBtn: {
+  availToggleBtnActive: {
+    borderColor: 'var(--primary)',
+    background: 'var(--primary-10)',
+    color: 'var(--primary)',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'var(--surface-alt)',
+    transition: 'all 0.15s',
+  },
+  checkboxChecked: {
+    background: 'var(--primary)',
+    borderColor: 'var(--primary)',
+  },
+  selectorsContainer: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '1.25rem',
+    background: 'rgba(255, 255, 255, 0.02)',
+    padding: '1.25rem',
+    borderRadius: 12,
+    border: '1px solid var(--border)',
+  },
+  selectorGroup: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.4rem',
+  },
+  selectorLabel: {
+    fontSize: '0.65rem',
+    fontFamily: 'var(--font-subheading)',
+    fontWeight: 700,
+    letterSpacing: '0.1em',
+    color: 'var(--text-muted)',
+  },
+  selectInput: {
+    width: '100%',
     background: 'var(--surface)',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    color: 'var(--text-muted)',
+    padding: '0.65rem 0.75rem',
+    color: 'var(--text-main)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.9rem',
+    outline: 'none',
     cursor: 'pointer',
+    appearance: 'none' as const,
+    backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='gold' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 8px center',
+  },
+  selectOption: {
+    background: '#120c1f',
+    color: 'var(--text-main)',
+  },
+  durationPreview: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0.5rem 0.75rem',
-    fontSize: '0.8rem',
-    fontFamily: 'var(--font-body)',
-    transition: 'border-color 0.15s',
-  },
-  slotOn: {
-    background: 'var(--primary-10)',
-    border: '1px solid var(--primary)',
-    color: 'var(--primary)',
-    fontWeight: 600,
+    gap: '0.5rem',
+    marginTop: '0.25rem',
   },
   footer: {
     display: 'flex',

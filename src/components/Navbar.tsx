@@ -25,6 +25,7 @@ export default function Navbar() {
               <Link href="/rules" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Rules</Link>
               <Link href="/dashboard/check-in" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Submit</Link>
               <Link href="/dashboard/rewards" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Rewards</Link>
+              <Link href="/schedule" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Schedule</Link>
               <Link href="/leaderboard" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Leaderboard</Link>
               
               {isAdmin && (
@@ -47,6 +48,7 @@ export default function Navbar() {
             <div className="flex items-center gap-6">
               <Link href="/rules" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Rules</Link>
               <Link href="/#rewards" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Rewards</Link>
+              <Link href="/schedule" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Schedule</Link>
               <Link href="/leaderboard" className="text-sm font-bold uppercase tracking-widest text-text-muted hover:text-white transition-colors hidden md:block">Leaderboard</Link>
               <button 
                 onClick={() => signInWithDiscord()}

@@ -201,21 +201,10 @@ function setupAnnouncements() {
 }
 
 client.on('interactionCreate', async (interaction: Interaction) => {
-  const { user } = interaction;
-  
-  let profile;
   try {
-    profile = await getProfile(user.id);
-  } catch (error: any) {
-    if (interaction.isChatInputCommand()) {
-      return interaction.reply({ content: error.message, ephemeral: true });
-    }
-    return;
-  }
-
-  const { commandName } = (interaction as any);
-
-  // --- BUTTON INTERACTIONS ---
+    const { user } = interaction;
+  
+  // --- 1. HANDLE PROFILE-FREE BUTTON INTERACTIONS ---
   if (interaction.isButton()) {
     const [action, subId] = interaction.customId.split('_');
 
@@ -328,6 +317,24 @@ client.on('interactionCreate', async (interaction: Interaction) => {
       await interaction.editReply({ embeds: [embed] });
       return;
     }
+  }
+
+  // --- 2. REQUIRE PROFILE FOR ALL OTHER INTERACTIONS ---
+  let profile;
+  try {
+    profile = await getProfile(user.id);
+  } catch (error: any) {
+    if (interaction.isRepliable()) {
+      return interaction.reply({ content: error.message, ephemeral: true });
+    }
+    return;
+  }
+
+  const { commandName } = (interaction as any);
+
+  // --- BUTTON INTERACTIONS (ADMIN ONLY) ---
+  if (interaction.isButton()) {
+    const [action, subId] = interaction.customId.split('_');
 
     const isAdmin = profile.role === 'admin';
     if (!isAdmin) return interaction.reply({ content: '⛔ Admin only.', ephemeral: true });
@@ -694,6 +701,24 @@ client.on('interactionCreate', async (interaction: Interaction) => {
   } catch (error: any) {
     console.error(error);
     if (!interaction.replied) await interaction.reply({ content: 'An error occurred.', ephemeral: true });
+  }
+  } catch (error: any) {
+    console.error('Global interaction error:', error);
+    if (error.code === 10062) {
+      console.log('Ignored expired interaction (Unknown interaction).');
+      return;
+    }
+    try {
+      if (interaction.isRepliable()) {
+        if (interaction.deferred) {
+          await interaction.editReply({ content: 'An error occurred while processing this interaction.' });
+        } else if (!interaction.replied) {
+          await interaction.reply({ content: 'An error occurred.', ephemeral: true });
+        }
+      }
+    } catch (replyError) {
+      console.error('Failed to reply to interaction after error:', replyError);
+    }
   }
 });
 
