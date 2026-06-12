@@ -451,7 +451,7 @@ export default function SchedulePage() {
                   {currentAvail?.enabled && <Check size={14} color="#000" />}
                 </div>
                 <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                  {currentAvail?.enabled ? 'I am available on this day' : 'I am NOT available on this day'}
+                  I am available on this day
                 </span>
               </div>
             </button>

@@ -297,7 +297,28 @@ client.on('interactionCreate', async (interaction: Interaction) => {
         return interaction.editReply({ content: 'Could not find any solid block of time matching the duration.' });
       }
 
-      const topOptions = blockOptions.slice(0, 3);
+      // Filter to keep only the best option per calendar day (using Manila timezone for grouping)
+      const filteredOptions: typeof blockOptions = [];
+      const seenDates = new Set<string>();
+
+      const getDateKey = (timestamp: number) => {
+        try {
+          return new Date(timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Manila' });
+        } catch (e) {
+          const d = new Date(timestamp);
+          return `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+        }
+      };
+
+      for (const option of blockOptions) {
+        const dateKey = getDateKey(option.startTime);
+        if (!seenDates.has(dateKey)) {
+          seenDates.add(dateKey);
+          filteredOptions.push(option);
+        }
+      }
+
+      const topOptions = filteredOptions.slice(0, 3);
 
       const embed = new EmbedBuilder()
         .setTitle(`📊 Optimal Times: ${event.title}`)
